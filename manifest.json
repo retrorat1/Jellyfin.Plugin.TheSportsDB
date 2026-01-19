@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "5fce2032-15f1-4171-4141-86105f201010",
+    "name": "TheSportsDB",
+    "description": "Metadata provider for TheSportsDB",
+    "overview": "Fetch sports league metadata from TheSportsDB.com",
+    "owner": "Rob",
+    "category": "Metadata",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.0/Jellyfin.Plugin.TheSportsDB.zip",
+        "checksum": "{CHECKSUM_PLACEHOLDER}",
+        "timestamp": "2026-01-19T00:00:00Z"
+      }
+    ]
+  }
+]
