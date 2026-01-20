@@ -12,8 +12,9 @@
             <div class="content-primary">
                 <form class="TheSportsDBConfigForm">
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="ApiKey">API Key</label>
-                        <input id="ApiKey" name="ApiKey" type="text" is="emby-input" />
+                        <label class="inputLabel inputLabelUnfocused" for="TheSportsDBApiKey">TheSportsDB API
+                            Key</label>
+                        <input id="TheSportsDBApiKey" name="TheSportsDBApiKey" type="text" is="emby-input" />
                         <div class="fieldDescription">TheSportsDB API Key (default: 3 for testing)</div>
                     </div>
                     <div>
@@ -30,14 +31,14 @@
                 update: function (page) {
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
-                        page.querySelector('#ApiKey').value = config.ApiKey || '3';
+                        page.querySelector('#TheSportsDBApiKey').value = config.ApiKey || '3';
                         Dashboard.hideLoadingMsg();
                     });
                 },
                 save: function (page) {
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
-                        config.ApiKey = page.querySelector('#ApiKey').value;
+                        config.ApiKey = page.querySelector('#TheSportsDBApiKey').value;
                         ApiClient.updatePluginConfiguration(TheSportsDBConfigurationPage.pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                     });
                 }
