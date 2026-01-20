@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Jellyfin.Plugin.TheSportsDB")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.1.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.1+684746a7b7c2b2c0ffe682f181e29d19b8e6c986")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.1+5e74f976e8daf00e52a58eb49c11f787a65dbccc")]
 [assembly: System.Reflection.AssemblyProductAttribute("Jellyfin.Plugin.TheSportsDB")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Jellyfin.Plugin.TheSportsDB")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.1.0")]
