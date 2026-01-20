@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/retrorat1/Jellyfin.Plugin.TheSportsDB/main/thumb.png",
     "versions": [
       {
+        "version": "1.0.3.0",
+        "changelog": "Fix configuration page input focus",
+        "targetAbi": "10.0.0.0",
+        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.3/Jellyfin.Plugin.TheSportsDB.zip",
+        "checksum": "EAECC04FBD30B07E3E7D5C3FFD94BC5F",
+        "timestamp": "2026-01-20T00:00:00Z"
+      },
+      {
         "version": "1.0.2.0",
         "changelog": "Fix configuration page ID collision",
         "targetAbi": "10.0.0.0",
