@@ -1,5 +1,5 @@
 $ProjectDir = "$PSScriptRoot"
-$BuildDir = "$ProjectDir\bin\Debug\net9.0"
+$BuildDir = "$ProjectDir\bin\Debug\net8.0"
 $DllName = "Jellyfin.Plugin.TheSportsDB.dll"
 $DllPath = "$BuildDir\$DllName"
 
@@ -29,9 +29,7 @@ foreach ($Path in $PossiblePaths) {
         
         Copy-Item -Path $DllPath -Destination "$PluginDir\$DllName" -Force
         Write-Host "Success! Plugin copied to: $PluginDir\$DllName"
-        Write-Host "Please restart your Jellyfin server to load the plugin."
         $TargetFound = $true
-        break
     }
 }
 

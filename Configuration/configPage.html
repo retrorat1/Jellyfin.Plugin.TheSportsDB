@@ -1,59 +1,54 @@
-<!DOCTYPE html>
-<html>
-
-<head>
-    <title>TheSportsDB Configuration</title>
-</head>
-
-<body>
-    <div data-role="page" class="type-interior pluginConfigurationPage TheSportsDBConfigurationPage"
-        data-require="emby-input,emby-button,emby-select,emby-checkbox">
-        <div data-role="content">
-            <div class="content-primary">
-                <form class="TheSportsDBConfigForm">
-                    <div class="inputContainer">
-                        <label class="inputLabel" for="TheSportsDBApiKey">TheSportsDB API Key</label>
-                        <input id="TheSportsDBApiKey" name="TheSportsDBApiKey" type="text" is="emby-input" />
-                        <div class="fieldDescription">TheSportsDB API Key (default: 3 for testing)</div>
-                    </div>
-                    <div>
-                        <button is="emby-button" type="submit" class="raised button-submit block">
-                            <span>Save</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+<div data-role="page" class="type-interior pluginConfigurationPage TheSportsDBConfigurationPage"
+    data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+            <form class="TheSportsDBConfigForm">
+                <div class="inputContainer">
+                    <label class="inputLabel" for="TheSportsDBApiKey">TheSportsDB API Key</label>
+                    <input id="TheSportsDBApiKey" name="TheSportsDBApiKey" type="text" is="emby-input" />
+                    <div class="fieldDescription">TheSportsDB API Key (default: 3 for testing)</div>
+                </div>
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
         </div>
-        <script type="text/javascript">
-            var TheSportsDBConfigurationPage = {
-                pluginId: '5fce2032-15f1-4171-4141-86105f201010', // Must match Plugin.Id
-                update: function (page) {
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
-                        page.querySelector('#TheSportsDBApiKey').value = config.ApiKey || '3';
-                        Dashboard.hideLoadingMsg();
-                    });
-                },
-                save: function (page) {
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
-                        config.ApiKey = page.querySelector('#TheSportsDBApiKey').value;
-                        ApiClient.updatePluginConfiguration(TheSportsDBConfigurationPage.pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
-                    });
-                }
-            };
-
-            document.querySelector('.TheSportsDBConfigurationPage').addEventListener('pageshow', function () {
-                TheSportsDBConfigurationPage.update(this);
-            });
-
-            document.querySelector('.TheSportsDBConfigForm').addEventListener('submit', function (e) {
-                e.preventDefault();
-                TheSportsDBConfigurationPage.save(this.closest('.TheSportsDBConfigurationPage'));
-                return false;
-            });
-        </script>
     </div>
-</body>
+    <script type="text/javascript">
+        var TheSportsDBConfigurationPage = {
+            pluginId: '5fce2032-15f1-4171-4141-86105f201010', // Must match Plugin.Id
+            update: function (page) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
+                    page.querySelector('#TheSportsDBApiKey').value = config.ApiKey || '3';
+                    Dashboard.hideLoadingMsg();
+                });
+            },
+            save: function (page) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
+                    config.ApiKey = page.querySelector('#TheSportsDBApiKey').value;
+                    ApiClient.updatePluginConfiguration(TheSportsDBConfigurationPage.pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+                });
+            }
+        };
 
-</html>
+        (function () {
+            var page = document.querySelector('.TheSportsDBConfigurationPage');
+            if (page) {
+                page.addEventListener('pageshow', function () {
+                    TheSportsDBConfigurationPage.update(this);
+                });
+            }
+        })();
+
+
+        document.querySelector('.TheSportsDBConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            TheSportsDBConfigurationPage.save(this.closest('.TheSportsDBConfigurationPage'));
+            return false;
+        });
+    </script>
+</div>
