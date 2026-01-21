@@ -1,5 +1,18 @@
 <div data-role="page" class="type-interior pluginConfigurationPage TheSportsDBConfigurationPage"
-    data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    data-require="emby-input,emby-button,emby-select,emby-checkbox"
+    style="position: relative; z-index: 10; pointer-events: auto; background-color: transparent;">
+    <style>
+        .TheSportsDBConfigurationPage form {
+            pointer-events: auto !important;
+            z-index: 100 !important;
+            position: relative;
+        }
+
+        .TheSportsDBConfigurationPage input,
+        .TheSportsDBConfigurationPage button {
+            pointer-events: auto !important;
+        }
+    </style>
     <div data-role="content">
         <div class="content-primary">
             <form class="TheSportsDBConfigForm">
