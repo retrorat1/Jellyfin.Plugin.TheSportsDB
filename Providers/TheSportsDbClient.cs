@@ -41,6 +41,12 @@ public class TheSportsDbClient
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
 
+    public async Task<HttpResponseMessage> GetImageResponseAsync(string url, CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient(NamedClient.Default);
+        return await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<T?> GetJsonAsync<T>(string url, CancellationToken cancellationToken) where T : class
     {
         try

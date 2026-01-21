@@ -34,7 +34,13 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
         var result = await _client.SearchLeagueAsync(searchInfo.Name, cancellationToken).ConfigureAwait(false);
         var list = new List<RemoteSearchResult>();
 
-        if (result?.countrys != null)
+        if (result == null) 
+        {
+             _logger.LogWarning("TheSportsDB: Search result for {Name} was null", searchInfo.Name);
+             return list;
+        }
+
+        if (result.countrys != null)
         {
             foreach (var league in result.countrys)
             {
@@ -48,9 +54,7 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
             }
         }
         
-        // Sometimes results are in 'leagues' instead of 'countrys' depending on the endpoint used (search vs lookup)
-        // But SearchLeagueAsync uses search_all_leagues.php which returns 'countrys' or 'leagues'
-        if (result?.leagues != null)
+        if (result.leagues != null)
         {
              foreach (var league in result.leagues)
             {
@@ -68,6 +72,7 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
             }
         }
 
+        _logger.LogInformation("TheSportsDB: Found {Count} results for {Name}", list.Count, searchInfo.Name);
         return list;
     }
 
@@ -78,9 +83,6 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
         var id = info.GetProviderId("TheSportsDB");
         if (string.IsNullOrEmpty(id))
         {
-             // If we don't have an ID, try to search first? 
-             // Ideally Jellyfin calls GetSearchResults first, so we should have an ID if the user selected it.
-             // Usually implicit search happens if ID is missing.
              var searchResults = await GetSearchResults(info, cancellationToken).ConfigureAwait(false);
              var first = searchResults.FirstOrDefault();
              if (first != null)
@@ -91,6 +93,7 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
 
         if (string.IsNullOrEmpty(id))
         {
+            _logger.LogWarning("TheSportsDB: No ID found for {Name}", info.Name);
             return new MetadataResult<Series>();
         }
 
@@ -99,6 +102,7 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
 
         if (league == null)
         {
+            _logger.LogWarning("TheSportsDB: No league found for ID {Id}", id);
             return new MetadataResult<Series>();
         }
 
@@ -120,14 +124,9 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
         };
     }
 
-    public Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
+    public async Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
     {
-        // Not used as we return ImageUrl in RemoteSearchResult
-        // But if needed for specific image fetching (like FanArt), this would be used.
-        // For IRemoteMetadataProvider, this method is often just a proxy or standard Get.
-        // However, IRemoteMetadataProvider inherits from IRemoteImageProvider? No, it doesn't always.
-        // Wait, IRemoteMetadataProvider interface definition:
-        // public interface IRemoteMetadataProvider<TItemType, in TLookupInfoType> : IMetadataProvider<TItemType, TLookupInfoType>, IRemoteMetadataProvider, IMetadataProvider, IRemoteSearchProvider<TItemType, TLookupInfoType>, IRemoteSearchProvider
-        throw new NotImplementedException();
+        _logger.LogDebug("TheSportsDB: Requesting image {Url}", url);
+        return await _client.GetImageResponseAsync(url, cancellationToken).ConfigureAwait(false);
     }
 }
