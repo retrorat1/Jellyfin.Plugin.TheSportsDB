@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/retrorat1/Jellyfin.Plugin.TheSportsDB/main/thumb.png",
     "versions": [
       {
+        "version": "1.0.8.0",
+        "changelog": "Add episode/match metadata support",
+        "targetAbi": "10.0.0.0",
+        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.8/Jellyfin.Plugin.TheSportsDB.zip",
+        "checksum": "12fd30c89d6732eed663be4b6fa389d0",
+        "timestamp": "2026-01-22T00:00:00Z"
+      },
+      {
         "version": "1.0.7.0",
         "changelog": "Add debug logging and fix image download implementation",
         "targetAbi": "10.0.0.0",
