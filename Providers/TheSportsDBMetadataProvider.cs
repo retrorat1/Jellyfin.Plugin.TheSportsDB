@@ -14,12 +14,17 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
 using Microsoft.Extensions.Logging;
 
-public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, SeriesInfo>
+public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, SeriesInfo>, IRemoteImageProvider
 {
     private readonly TheSportsDbClient _client;
     private readonly ILogger<TheSportsDBMetadataProvider> _logger;
 
     public string Name => "TheSportsDB";
+    
+    public bool Supports(BaseItem item)
+    {
+        return item is Series;
+    }
 
     public TheSportsDBMetadataProvider(IHttpClientFactory httpClientFactory, ILogger<TheSportsDBMetadataProvider> logger, ILogger<TheSportsDbClient> clientLogger)
     {
@@ -128,5 +133,37 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
     {
         _logger.LogDebug("TheSportsDB: Requesting image {Url}", url);
         return await _client.GetImageResponseAsync(url, cancellationToken).ConfigureAwait(false);
+    }
+
+    public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
+    {
+        return new[] { ImageType.Primary, ImageType.Backdrop };
+    }
+
+    public async Task<IEnumerable<RemoteImageInfo>> GetImages(BaseItem item, CancellationToken cancellationToken)
+    {
+        var list = new List<RemoteImageInfo>();
+        var id = item.GetProviderId("TheSportsDB");
+
+        if (string.IsNullOrEmpty(id))
+        {
+            return list;
+        }
+
+        var result = await _client.GetLeagueAsync(id, cancellationToken).ConfigureAwait(false);
+        var league = result?.leagues?.FirstOrDefault();
+
+        if (league != null)
+        {
+             if (!string.IsNullOrEmpty(league.strBadge))
+                list.Add(new RemoteImageInfo { Url = league.strBadge, Type = ImageType.Primary, ProviderName = "TheSportsDB" });
+             else if (!string.IsNullOrEmpty(league.strLogo))
+                 list.Add(new RemoteImageInfo { Url = league.strLogo, Type = ImageType.Primary, ProviderName = "TheSportsDB" });
+            
+            if (!string.IsNullOrEmpty(league.strPoster))
+                list.Add(new RemoteImageInfo { Url = league.strPoster, Type = ImageType.Backdrop, ProviderName = "TheSportsDB" });
+        }
+        
+        return list;
     }
 }

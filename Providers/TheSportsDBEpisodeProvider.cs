@@ -7,23 +7,30 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
 using Microsoft.Extensions.Logging;
 
-public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>
+public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IRemoteImageProvider
 {
     private readonly TheSportsDbClient _client;
     private readonly ILogger<TheSportsDBEpisodeProvider> _logger;
 
     public string Name => "TheSportsDB";
+    
+    public bool Supports(BaseItem item)
+    {
+        return item is Episode;
+    }
 
     public TheSportsDBEpisodeProvider(IHttpClientFactory httpClientFactory, ILogger<TheSportsDBEpisodeProvider> logger, ILogger<TheSportsDbClient> clientLogger)
     {
         _client = new TheSportsDbClient(httpClientFactory, clientLogger);
         _logger = logger;
+        _logger.LogInformation("TheSportsDB: Episode Provider loaded.");
     }
 
     public async Task<IEnumerable<RemoteSearchResult>> GetSearchResults(EpisodeInfo searchInfo, CancellationToken cancellationToken)
@@ -161,6 +168,35 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         return _client.GetImageResponseAsync(url, cancellationToken);
     }
     
+    public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
+    {
+        return new[] { ImageType.Primary };
+    }
+
+    public async Task<IEnumerable<RemoteImageInfo>> GetImages(BaseItem item, CancellationToken cancellationToken)
+    {
+        var list = new List<RemoteImageInfo>();
+        var id = item.GetProviderId("TheSportsDB");
+
+        if (!string.IsNullOrEmpty(id))
+        {
+            var result = await _client.GetEventAsync(id, cancellationToken).ConfigureAwait(false);
+            var ev = result?.events?.FirstOrDefault();
+            
+            if (ev != null && !string.IsNullOrEmpty(ev.strThumb))
+            {
+                list.Add(new RemoteImageInfo
+                {
+                    Url = ev.strThumb,
+                    ProviderName = "TheSportsDB",
+                    Type = ImageType.Primary
+                });
+            }
+        }
+        
+        return list;
+    }
+
     private DateTime? MatchDate(string input)
     {
         // Try YYYY-MM-DD

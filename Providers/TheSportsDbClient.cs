@@ -59,6 +59,12 @@ public class TheSportsDbClient
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
 
+    public async Task<RootObject?> GetEventAsync(string id, CancellationToken cancellationToken)
+    {
+        var url = $"{BaseUrl}/lookupevent.php?id={id}";
+        return await GetJsonAsync<RootObject>(url, cancellationToken);
+    }
+    
     private async Task<T?> GetJsonAsync<T>(string url, CancellationToken cancellationToken) where T : class
     {
         try
