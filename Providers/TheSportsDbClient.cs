@@ -64,6 +64,17 @@ public class TheSportsDbClient
         var url = $"{BaseUrl}/lookupevent.php?id={id}";
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
+
+    public async Task<RootObject?> GetEventsByDayAsync(DateTime date, string? leagueId, CancellationToken cancellationToken)
+    {
+        var d = date.ToString("yyyy-MM-dd");
+        var url = $"{BaseUrl}/eventsday.php?d={d}";
+        if (!string.IsNullOrEmpty(leagueId))
+        {
+            url += $"&l={leagueId}";
+        }
+        return await GetJsonAsync<RootObject>(url, cancellationToken);
+    }
     
     private async Task<T?> GetJsonAsync<T>(string url, CancellationToken cancellationToken) where T : class
     {

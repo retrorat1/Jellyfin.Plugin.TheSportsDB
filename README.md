@@ -6,6 +6,8 @@ A Jellyfin metadata provider plugin for [TheSportsDB](https://www.thesportsdb.co
 
 - Fetches League metadata (Name, Overview, Year, Images)
 - Maps Leagues to "Series" in Jellyfin
+- Fetches Event/Match metadata (Name, Date, Thumbnails, Fanart)
+- Maps Events to "Episodes" in Jellyfin
 - Supports user API Key configuration
 
 ## Installation
