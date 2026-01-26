@@ -211,90 +211,26 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
 
         // Fallback: If no match by name, but we have a Date and League ID
         // This is useful for abbreviated filenames like "2026-01-22-EDM-PIT" which SearchEventsAsync won't match.
+        // Fallback: If no match by name, but we have a Date and League ID
+        // This is useful for abbreviated filenames like "2026-01-22-EDM-PIT" which SearchEventsAsync won't match.
         if (match == null && matchDate.HasValue)
         {
-            _logger.LogInformation("TheSportsDB: No match by name. Trying lookup by Date {Date} and League {LeagueId}", matchDate.Value, leagueId ?? "Any");
-            var dayResults = await _client.GetEventsByDayAsync(matchDate.Value, leagueId, cancellationToken).ConfigureAwait(false);
-            
-            if (dayResults?.events != null)
-            {
-                 // We have events for this day. Try to find one that matches the filename parts.
-                 // Simple heuristic: Does the event string contain parts of the cleaned filename?
-                 // Or just pick the one matching regex of teams if possible.
-                 foreach (var ev in dayResults.events)
-                 {
-                     // If CleanName was "EDM-PIT" and ev.strEvent is "Edmonton Oilers vs Pittsburgh Penguins"
-                     // We can try splitting input by non-alpha and matching?
-                     
-                     // If there's only one event for this league on this day, it's a very strong candidate.
-                     if (dayResults.events.Count == 1)
-                     {
-                         _logger.LogInformation("TheSportsDB: Single event found for date/league. Accepting match: {Event}", ev.strEvent);
-                         match = ev;
-                         break;
-                     }
-                     
-                     // Otherwise, try to fuzzy match
-                     // Checking if the team abbreviations are in the full team names
-                     // For now, let's use a loose containment check if the input is short.
-                     
-                     // If specific "vs" check logic
-                     var normalizedAcc = ev.strEvent.Replace(" vs ", " ").Replace(" vs. ", " ").Replace("-", " ");
-                     // normalizedAcc: "Edmonton Oilers Pittsburgh Penguins"
-                     
-                     // Check if "EDM" matches "Edmonton" (StartsWith)
-                     // This is tricky without a dictionary. 
-                     // But if the user renamed the file to "Minnesota Wild vs Detroit Red Wings", they are fine.
-                     // This fallback is explicitly for the "EDM-PIT" case the user encountered.
-                     
-                     // Let's at least match if the cleaned name is contained in the event name
-                     if (ev.strEvent.IndexOf(cleanName, StringComparison.OrdinalIgnoreCase) >= 0)
-                     {
-                         match = ev;
-                         break;
-                     }
-                     
-                     // Experimental: Abbreviation check (StartWith) for first 3 chars
-                     // cleanName="EDM-PIT" -> parts ["EDM", "PIT"]
-                     // ev.strHomeTeam="Edmonton Oilers", strAwayTeam="Pittsburgh Penguins"
-                     var parts = cleanName.Split(new[] { ' ', '-', 'v', 's', '.' }, StringSplitOptions.RemoveEmptyEntries);
-                     // Filter out common small words/chars if needed, but 'v' and 's' split handles vs
-                     
-                     if (parts.Length >= 2 && !string.IsNullOrEmpty(ev.strHomeTeam) && !string.IsNullOrEmpty(ev.strAwayTeam))
-                     {
-                         var p1 = parts[0];
-                         var p2 = parts[1];
-                         
-                         // Check Part 1 against Home OR Away
-                         bool match1 = ev.strHomeTeam.StartsWith(p1, StringComparison.OrdinalIgnoreCase) || 
-                                       ev.strAwayTeam.StartsWith(p1, StringComparison.OrdinalIgnoreCase);
-                                       
-                         // Check Part 2 against Home OR Away
-                         bool match2 = ev.strHomeTeam.StartsWith(p2, StringComparison.OrdinalIgnoreCase) || 
-                                       ev.strAwayTeam.StartsWith(p2, StringComparison.OrdinalIgnoreCase);
-                                       
-                         if (match1 && match2)
-                         {
-                             _logger.LogInformation("TheSportsDB: Abbreviation match found (StartsWith): {P1}/{P2} in {Home}/{Away}", p1, p2, ev.strHomeTeam, ev.strAwayTeam);
-                             match = ev;
-                             break;
-                         }
-
-                         // Advanced Lookup: If simple StartsWith failed, try to Resolve Team by Abbreviation
-                         // This catches cases where Abbreviation != Start of Name (e.g. "MTL" vs "Montreal", "WSH" vs "Washington")
-                         // Only do this if we haven't matched yet.
-                         if (!match1) match1 = await CheckTeamIdMatch(p1, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
-                         if (!match2) match2 = await CheckTeamIdMatch(p2, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
-
-                         if (match1 && match2)
-                         {
-                             _logger.LogInformation("TheSportsDB: Abbreviation match found (TeamID Lookup): {P1}/{P2} matched Event {Event}", p1, p2, ev.strEvent);
-                             match = ev;
-                             break;
-                         }
-                     }
-                 }
-            }
+             // 1. Try Exact Date
+             match = await FindMatchOnDateAsync(matchDate.Value, leagueId, cleanName, cancellationToken).ConfigureAwait(false);
+             
+             // 2. Try Next Day (UTC vs Local Time issue). E.g. File=24th (Sat), API=25th (Sun UTC)
+             if (match == null)
+             {
+                 _logger.LogInformation("TheSportsDB: No match on exact date. Checking T+1 day ({Date}) for timezone offset.", matchDate.Value.AddDays(1));
+                 match = await FindMatchOnDateAsync(matchDate.Value.AddDays(1), leagueId, cleanName, cancellationToken).ConfigureAwait(false);
+             }
+             
+             // 3. Try Prev Day
+             if (match == null)
+             {
+                 _logger.LogInformation("TheSportsDB: No match on T+1. Checking T-1 day ({Date}) for timezone offset.", matchDate.Value.AddDays(-1));
+                 match = await FindMatchOnDateAsync(matchDate.Value.AddDays(-1), leagueId, cleanName, cancellationToken).ConfigureAwait(false);
+             }
         }
 
         // Fallback: If no match by name, and we have LeagueID + Season
@@ -441,6 +377,64 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         return false;
     }
     
+    private async Task<Event?> FindMatchOnDateAsync(DateTime date, string? leagueId, string cleanName, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("TheSportsDB: Trying lookup by Date {Date} and League {LeagueId}", date, leagueId ?? "Any");
+        var dayResults = await _client.GetEventsByDayAsync(date, leagueId, cancellationToken).ConfigureAwait(false);
+        
+        if (dayResults?.events != null)
+        {
+             foreach (var ev in dayResults.events)
+             {
+                 // 1. Single Event Match (High Confidence if filtered by League)
+                 if (dayResults.events.Count == 1 && !string.IsNullOrEmpty(leagueId))
+                 {
+                     _logger.LogInformation("TheSportsDB: Single event found for date/league. Accepting match: {Event}", ev.strEvent);
+                     return ev;
+                 }
+                 
+                 // 2. Name Containment Match
+                 if (ev.strEvent.IndexOf(cleanName, StringComparison.OrdinalIgnoreCase) >= 0)
+                 {
+                     return ev;
+                 }
+                 
+                 // 3. Abbreviation / Parts Match
+                 var parts = cleanName.Split(new[] { ' ', '-', 'v', 's', '.' }, StringSplitOptions.RemoveEmptyEntries);
+                 
+                 if (parts.Length >= 2 && !string.IsNullOrEmpty(ev.strHomeTeam) && !string.IsNullOrEmpty(ev.strAwayTeam))
+                 {
+                     var p1 = parts[0];
+                     var p2 = parts[1];
+                     
+                     // Check Part 1 against Home OR Away
+                     bool match1 = ev.strHomeTeam.StartsWith(p1, StringComparison.OrdinalIgnoreCase) || 
+                                   ev.strAwayTeam.StartsWith(p1, StringComparison.OrdinalIgnoreCase);
+                                   
+                     // Check Part 2 against Home OR Away
+                     bool match2 = ev.strHomeTeam.StartsWith(p2, StringComparison.OrdinalIgnoreCase) || 
+                                   ev.strAwayTeam.StartsWith(p2, StringComparison.OrdinalIgnoreCase);
+                                   
+                     if (match1 && match2)
+                     {
+                         _logger.LogInformation("TheSportsDB: Abbreviation match found (StartsWith): {P1}/{P2} in {Home}/{Away}", p1, p2, ev.strHomeTeam, ev.strAwayTeam);
+                         return ev;
+                     }
+
+                     // Advanced Lookup: If simple StartsWith failed, try to Resolve Team by Abbreviation
+                     if (!match1) match1 = await CheckTeamIdMatch(p1, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
+                     if (!match2) match2 = await CheckTeamIdMatch(p2, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
+
+                     if (match1 && match2)
+                     {
+                         _logger.LogInformation("TheSportsDB: Abbreviation match found (TeamID Lookup): {P1}/{P2} matched Event {Event}", p1, p2, ev.strEvent);
+                         return ev;
+                     }
+                 }
+             }
+        }
+        return null;
+    }
     private async Task<string?> ResolveLeagueIdFromDbAsync(string name, CancellationToken cancellationToken)
     {
         try 
