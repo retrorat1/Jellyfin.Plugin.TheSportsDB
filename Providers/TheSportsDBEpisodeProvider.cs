@@ -19,6 +19,16 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
     private readonly TheSportsDbClient _client;
     private readonly ILogger<TheSportsDBEpisodeProvider> _logger;
 
+    private static readonly Dictionary<string, string> KnownLeagueIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "NHL", "4380" },
+        { "EPL", "4328" },
+        { "NFL", "4391" },
+        { "NBA", "4387" },
+        { "MLB", "4424" },
+        { "UFC", "4463" } 
+    };
+
     public string Name => "TheSportsDB";
     
     public bool Supports(BaseItem item)
@@ -122,25 +132,34 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             // Expected structure: .../SeriesName/Season/Episode.mp4 OR .../SeriesName/Episode.mp4
             
             _logger.LogInformation("TheSportsDB: League ID missing. Attempting to resolve league from Path-Derived Series Name: {SeriesName}", seriesName);
-            var leagueResult = await _client.SearchLeagueAsync(seriesName, cancellationToken).ConfigureAwait(false);
-            if (leagueResult?.countrys != null)
-            {
-                 var l = leagueResult.countrys.FirstOrDefault();
-                 if (l != null) 
-                 {
-                     leagueId = l.idLeague;
-                     _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
-                 }
-            }
             
-            if (string.IsNullOrEmpty(leagueId) && leagueResult?.leagues != null)
+            if (KnownLeagueIds.TryGetValue(seriesName, out var knownId))
             {
-                 var l = leagueResult.leagues.FirstOrDefault();
-                 if (l != null) 
-                 {
-                     leagueId = l.idLeague;
-                     _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
-                 }
+                 leagueId = knownId;
+                 _logger.LogInformation("TheSportsDB: Resolved League ID from internal map: {LeagueId} for {SeriesName}", leagueId, seriesName);
+            }
+            else
+            {
+                var leagueResult = await _client.SearchLeagueAsync(seriesName, cancellationToken).ConfigureAwait(false);
+                if (leagueResult?.countrys != null)
+                {
+                     var l = leagueResult.countrys.FirstOrDefault();
+                     if (l != null) 
+                     {
+                         leagueId = l.idLeague;
+                         _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                     }
+                }
+                
+                if (string.IsNullOrEmpty(leagueId) && leagueResult?.leagues != null)
+                {
+                     var l = leagueResult.leagues.FirstOrDefault();
+                     if (l != null) 
+                     {
+                         leagueId = l.idLeague;
+                         _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                     }
+                }
             }
         }
 

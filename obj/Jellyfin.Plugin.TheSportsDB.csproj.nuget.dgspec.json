@@ -5,7 +5,7 @@
   },
   "projects": {
     "C:\\Users\\Rob\\Jellyfin.Plugin.TheSportsDB\\Jellyfin.Plugin.TheSportsDB\\Jellyfin.Plugin.TheSportsDB.csproj": {
-      "version": "1.0.13",
+      "version": "1.0.14",
       "restore": {
         "projectUniqueName": "C:\\Users\\Rob\\Jellyfin.Plugin.TheSportsDB\\Jellyfin.Plugin.TheSportsDB\\Jellyfin.Plugin.TheSportsDB.csproj",
         "projectName": "Jellyfin.Plugin.TheSportsDB",
