@@ -75,6 +75,12 @@ public class TheSportsDbClient
         }
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
+
+    public async Task<RootObject?> SearchTeamsAsync(string query, CancellationToken cancellationToken)
+    {
+        var url = $"{BaseUrl}/searchteams.php?t={Uri.EscapeDataString(query)}";
+        return await GetJsonAsync<RootObject>(url, cancellationToken);
+    }
     
     private async Task<T?> GetJsonAsync<T>(string url, CancellationToken cancellationToken) where T : class
     {
@@ -105,6 +111,7 @@ public class RootObject
     public List<League>? leagues { get; set; }
     public List<Event>? events { get; set; }
     public List<Event>? eventresults { get; set; }
+    public List<Team>? teams { get; set; }
 }
 
 public class League
@@ -150,4 +157,27 @@ public class Event
     public string? strPoster { get; set; }
     public string? strFanart { get; set; }
     public string? strVideo { get; set; }
+    public string? idHomeTeam { get; set; }
+    public string? idAwayTeam { get; set; }
+}
+
+public class Team
+{
+    public string idTeam { get; set; } = string.Empty;
+    public string strTeam { get; set; } = string.Empty;
+    public string? strTeamShort { get; set; }
+    public string? strAlternate { get; set; }
+    public string? intFormedYear { get; set; }
+    public string? strSport { get; set; }
+    public string? strLeague { get; set; }
+    public string? idLeague { get; set; }
+    public string? strDescriptionEN { get; set; }
+    public string? strTeamBadge { get; set; }
+    public string? strTeamJersey { get; set; }
+    public string? strTeamLogo { get; set; }
+    public string? strTeamFanart1 { get; set; }
+    public string? strTeamFanart2 { get; set; }
+    public string? strTeamFanart3 { get; set; }
+    public string? strTeamFanart4 { get; set; }
+    public string? strTeamBanner { get; set; }
 }

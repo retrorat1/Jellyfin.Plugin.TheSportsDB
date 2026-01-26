@@ -64,13 +64,45 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         _logger.LogInformation("TheSportsDB: Getting episode metadata for {Name}", info.Name);
 
         Event? match = null;
+        string? seriesName = null;
+
+        // Try to derive Series Name from Path first, as we need it for League lookup and cleaning
+        if (!string.IsNullOrEmpty(info.Path))
+        {
+            try 
+            {
+                var dir = System.IO.Path.GetDirectoryName(info.Path);
+                if (dir != null)
+                {
+                    var folderName = System.IO.Path.GetFileName(dir);
+                    
+                    // Check if this is a Season folder (digits or "Season")
+                    if (Regex.IsMatch(folderName, @"\d{4}|Season", RegexOptions.IgnoreCase))
+                    {
+                        var parent = System.IO.Path.GetDirectoryName(dir);
+                        if (parent != null)
+                        {
+                            seriesName = System.IO.Path.GetFileName(parent);
+                        }
+                    }
+                    else
+                    {
+                        // Maybe the folder itself is the Series Name (e.g. .../NHL/Game.mp4)
+                        seriesName = folderName;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "TheSportsDB: Failed to derive series name from path {Path}", info.Path);
+            }
+        }
 
         // Strategy 1: If we have multiple providers, maybe we have an ID?
         var eventId = info.GetProviderId("TheSportsDB");
         if (!string.IsNullOrEmpty(eventId))
         {
-             // TODO: Lookup specific event by ID (need simple lookup endpoint, or use search)
-             // _client.GetEventAsync... (Not implemented yet, but search handles it usually)
+             // TODO: Lookup specific event by ID
         }
 
         // Strategy 2: Use Series ID + Season + Date/Name to find event
@@ -81,16 +113,35 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         
         if (!string.IsNullOrEmpty(leagueId))
         {
-            // Resolve Season
-            // TODO: Future logic to resolve Season from IndexNumber/ParentIndexNumber
-            // if (info.IndexNumber.HasValue && info.ParentIndexNumber.HasValue) 
-            // {
-            //    // This works for "Season 2025" if mapped correctly?
-            //    // Standard Sports naming: Season 2025-2026.
-            // }
+            // Resolve Season if needed
+        }
+        else if (!string.IsNullOrEmpty(seriesName))
+        {
+            // Fallback: Try to resolve League ID dynamically if missing from Series context
+            // 'SeriesName' is not available on EpisodeInfo in some contexts, so we derive it from the path.
+            // Expected structure: .../SeriesName/Season/Episode.mp4 OR .../SeriesName/Episode.mp4
             
-            // Try extracting season from path or use current year if needed?
-            // Actually, best bet is to fuzzy search the event name first if reliable.
+            _logger.LogInformation("TheSportsDB: League ID missing. Attempting to resolve league from Path-Derived Series Name: {SeriesName}", seriesName);
+            var leagueResult = await _client.SearchLeagueAsync(seriesName, cancellationToken).ConfigureAwait(false);
+            if (leagueResult?.countrys != null)
+            {
+                 var l = leagueResult.countrys.FirstOrDefault();
+                 if (l != null) 
+                 {
+                     leagueId = l.idLeague;
+                     _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                 }
+            }
+            
+            if (string.IsNullOrEmpty(leagueId) && leagueResult?.leagues != null)
+            {
+                 var l = leagueResult.leagues.FirstOrDefault();
+                 if (l != null) 
+                 {
+                     leagueId = l.idLeague;
+                     _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                 }
+            }
         }
 
         // Let's try Search by Name first as it is versatile
@@ -104,7 +155,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Match: (League)? (YYYY-MM-DD)? (Home vs Away)
         
         var matchDate = MatchDate(info.Name);
-        var cleanName = CleanName(info.Name);
+        var seriesNameToStrip = seriesName;
+        var cleanName = CleanName(info.Name, seriesNameToStrip);
 
         _logger.LogDebug("TheSportsDB: Cleaned name: {CleanName}, Date: {Date}", cleanName, matchDate);
 
@@ -147,6 +199,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
                      // If there's only one event for this league on this day, it's a very strong candidate.
                      if (dayResults.events.Count == 1)
                      {
+                         _logger.LogInformation("TheSportsDB: Single event found for date/league. Accepting match: {Event}", ev.strEvent);
                          match = ev;
                          break;
                      }
@@ -175,15 +228,37 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
                      // cleanName="EDM-PIT" -> parts ["EDM", "PIT"]
                      // ev.strHomeTeam="Edmonton Oilers", strAwayTeam="Pittsburgh Penguins"
                      var parts = cleanName.Split(new[] { ' ', '-', 'v', 's', '.' }, StringSplitOptions.RemoveEmptyEntries);
+                     // Filter out common small words/chars if needed, but 'v' and 's' split handles vs
+                     
                      if (parts.Length >= 2 && !string.IsNullOrEmpty(ev.strHomeTeam) && !string.IsNullOrEmpty(ev.strAwayTeam))
                      {
-                         bool homeMatch = ev.strHomeTeam.StartsWith(parts[0], StringComparison.OrdinalIgnoreCase) || 
-                                          ev.strAwayTeam.StartsWith(parts[0], StringComparison.OrdinalIgnoreCase);
-                         bool awayMatch = ev.strHomeTeam.StartsWith(parts[1], StringComparison.OrdinalIgnoreCase) || 
-                                          ev.strAwayTeam.StartsWith(parts[1], StringComparison.OrdinalIgnoreCase);
-                                          
-                         if (homeMatch && awayMatch)
+                         var p1 = parts[0];
+                         var p2 = parts[1];
+                         
+                         // Check Part 1 against Home OR Away
+                         bool match1 = ev.strHomeTeam.StartsWith(p1, StringComparison.OrdinalIgnoreCase) || 
+                                       ev.strAwayTeam.StartsWith(p1, StringComparison.OrdinalIgnoreCase);
+                                       
+                         // Check Part 2 against Home OR Away
+                         bool match2 = ev.strHomeTeam.StartsWith(p2, StringComparison.OrdinalIgnoreCase) || 
+                                       ev.strAwayTeam.StartsWith(p2, StringComparison.OrdinalIgnoreCase);
+                                       
+                         if (match1 && match2)
                          {
+                             _logger.LogInformation("TheSportsDB: Abbreviation match found (StartsWith): {P1}/{P2} in {Home}/{Away}", p1, p2, ev.strHomeTeam, ev.strAwayTeam);
+                             match = ev;
+                             break;
+                         }
+
+                         // Advanced Lookup: If simple StartsWith failed, try to Resolve Team by Abbreviation
+                         // This catches cases where Abbreviation != Start of Name (e.g. "MTL" vs "Montreal", "WSH" vs "Washington")
+                         // Only do this if we haven't matched yet.
+                         if (!match1) match1 = await CheckTeamIdMatch(p1, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
+                         if (!match2) match2 = await CheckTeamIdMatch(p2, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
+
+                         if (match1 && match2)
+                         {
+                             _logger.LogInformation("TheSportsDB: Abbreviation match found (TeamID Lookup): {P1}/{P2} matched Event {Event}", p1, p2, ev.strEvent);
                              match = ev;
                              break;
                          }
@@ -285,16 +360,36 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
     {
         // Try YYYY-MM-DD
         var m = Regex.Match(input, @"(\d{4}-\d{2}-\d{2})");
-        if (m.Success && DateTime.TryParse(m.Groups[1].Value, out var d)) return d;
+        if (m.Success && DateTime.TryParseExact(m.Groups[1].Value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d)) return d;
         
         // Try DD-MM-YYYY
         m = Regex.Match(input, @"(\d{2}-\d{2}-\d{4})");
-        if (m.Success && DateTime.TryParse(m.Groups[1].Value, out d)) return d;
+        if (m.Success && DateTime.TryParseExact(m.Groups[1].Value, "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d)) return d;
 
         return null;
     }
     
-    private string CleanName(string input)
+    private async Task<bool> CheckTeamIdMatch(string part, string? idHome, string? idAway, CancellationToken cancellationToken)
+    {
+        // Don't search for very short/common strings that are not likely teams unless they look like abbreviations (2-4 chars)
+        if (part.Length < 2 || part.Length > 4) return false;
+
+        var teamResult = await _client.SearchTeamsAsync(part, cancellationToken).ConfigureAwait(false);
+        if (teamResult?.teams != null)
+        {
+             foreach (var t in teamResult.teams)
+             {
+                 // Check if the team we found has an ID matching the event
+                 if (t.idTeam == idHome || t.idTeam == idAway)
+                 {
+                     return true;
+                 }
+             }
+        }
+        return false;
+    }
+    
+    private string CleanName(string input, string? seriesName = null)
     {
         // Remove Dates
         var s = Regex.Replace(input, @"\d{4}-\d{2}-\d{2}", ""); // YYYY-MM-DD
@@ -302,15 +397,15 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         
         // Remove League Prefixes common in filename but not in Event Name
         // E.g. "NHL ", "EPL "
-        // Use a simple heuristic: "Team vs Team" is usually what we want.
-        // If " vs " or " vs. " exists, try to grab surrounding words?
-        // Or just strip common separators.
-        
-        // Heuristic: Remove anything that looks like a series name if possible.
-        // For now, let's just trim excess/punctuation.
+        if (!string.IsNullOrEmpty(seriesName))
+        {
+            s = s.Replace(seriesName, "", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Hardcoded fallbacks only if seriesName wasn't sufficient or provided
         s = s.Replace("NHL", "", StringComparison.OrdinalIgnoreCase);
         s = s.Replace("EPL", "", StringComparison.OrdinalIgnoreCase);
         
-        return s.Trim().Trim('-', ' ');
+        return s.Trim().Trim('-', ' ', '.');
     }
 }
