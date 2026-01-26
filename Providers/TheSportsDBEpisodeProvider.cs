@@ -291,6 +291,12 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             // ep.PremiereDate might need time component.
         }
 
+        // Map Production Year to Season Number if possible to assist grouping
+        if (ep.ProductionYear.HasValue)
+        {
+            ep.ParentIndexNumber = ep.ProductionYear.Value;
+        }
+
         var res = new MetadataResult<Episode>
         {
             Item = ep,
@@ -374,18 +380,34 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Don't search for very short/common strings that are not likely teams unless they look like abbreviations (2-4 chars)
         if (part.Length < 2 || part.Length > 4) return false;
 
-        var teamResult = await _client.SearchTeamsAsync(part, cancellationToken).ConfigureAwait(false);
-        if (teamResult?.teams != null)
+        // Strategy: Instead of searching for the abbreviation (which is unreliable),
+        // fetch the actual teams involved in the event and check their abbreviations.
+        
+        var teamsToCheck = new[] { idHome, idAway };
+        foreach (var teamId in teamsToCheck)
         {
-             foreach (var t in teamResult.teams)
-             {
-                 // Check if the team we found has an ID matching the event
-                 if (t.idTeam == idHome || t.idTeam == idAway)
-                 {
-                     return true;
-                 }
-             }
+            if (string.IsNullOrEmpty(teamId)) continue;
+
+            // TODO: Add caching here to avoid spamming the API for the same team ID across multiple checks
+            var teamResult = await _client.GetTeamAsync(teamId, cancellationToken).ConfigureAwait(false);
+            var team = teamResult?.teams?.FirstOrDefault();
+            
+            if (team != null)
+            {
+                // Check strTeamShort
+                if (string.Equals(team.strTeamShort, part, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                
+                // Also check strTeam (full name) just in case
+                if (team.strTeam.StartsWith(part, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
         }
+        
         return false;
     }
     

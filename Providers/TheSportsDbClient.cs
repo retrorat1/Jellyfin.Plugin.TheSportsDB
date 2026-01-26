@@ -81,6 +81,12 @@ public class TheSportsDbClient
         var url = $"{BaseUrl}/searchteams.php?t={Uri.EscapeDataString(query)}";
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
+
+    public async Task<RootObject?> GetTeamAsync(string id, CancellationToken cancellationToken)
+    {
+        var url = $"{BaseUrl}/lookupteam.php?id={id}";
+        return await GetJsonAsync<RootObject>(url, cancellationToken);
+    }
     
     private async Task<T?> GetJsonAsync<T>(string url, CancellationToken cancellationToken) where T : class
     {

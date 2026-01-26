@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v8.0": {
-      "Jellyfin.Plugin.TheSportsDB/1.0.4": {
+      "Jellyfin.Plugin.TheSportsDB/1.0.10": {
         "dependencies": {
           "Jellyfin.Controller": "10.9.0",
           "Jellyfin.Model": "10.9.0",
@@ -272,7 +272,7 @@
     }
   },
   "libraries": {
-    "Jellyfin.Plugin.TheSportsDB/1.0.4": {
+    "Jellyfin.Plugin.TheSportsDB/1.0.10": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
