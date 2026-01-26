@@ -181,9 +181,9 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
 
         // Fallback: If no match by name, but we have a Date and League ID
         // This is useful for abbreviated filenames like "2026-01-22-EDM-PIT" which SearchEventsAsync won't match.
-        if (match == null && matchDate.HasValue && !string.IsNullOrEmpty(leagueId))
+        if (match == null && matchDate.HasValue)
         {
-            _logger.LogInformation("TheSportsDB: No match by name. Trying lookup by Date {Date} and League {LeagueId}", matchDate.Value, leagueId);
+            _logger.LogInformation("TheSportsDB: No match by name. Trying lookup by Date {Date} and League {LeagueId}", matchDate.Value, leagueId ?? "Any");
             var dayResults = await _client.GetEventsByDayAsync(matchDate.Value, leagueId, cancellationToken).ConfigureAwait(false);
             
             if (dayResults?.events != null)
