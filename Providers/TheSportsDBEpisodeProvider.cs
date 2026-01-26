@@ -197,7 +197,10 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             IEnumerable<Event> candidates = searchResults.events;
             if (matchDate.HasValue)
             {
-                candidates = candidates.Where(e => DateTime.TryParse(e.dateEvent, out var d) && d.Date == matchDate.Value.Date);
+                candidates = candidates.Where(e => 
+                    DateTime.TryParse(e.dateEvent, out var d) && 
+                    d.Date >= matchDate.Value.AddDays(-1).Date && 
+                    d.Date <= matchDate.Value.AddDays(1).Date);
             }
             
             // Filter by League if known
