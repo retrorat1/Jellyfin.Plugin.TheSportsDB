@@ -13,6 +13,8 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Data.Sqlite;
+using System.Reflection;
 
 public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IRemoteImageProvider
 {
@@ -140,25 +142,34 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             }
             else
             {
-                var leagueResult = await _client.SearchLeagueAsync(seriesName, cancellationToken).ConfigureAwait(false);
-                if (leagueResult?.countrys != null)
+                // Try Local DB
+                leagueId = await ResolveLeagueIdFromDbAsync(seriesName, cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(leagueId))
                 {
-                     var l = leagueResult.countrys.FirstOrDefault();
-                     if (l != null) 
-                     {
-                         leagueId = l.idLeague;
-                         _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
-                     }
+                    _logger.LogInformation("TheSportsDB: Resolved League ID from local DB: {LeagueId} for {SeriesName}", leagueId, seriesName);
                 }
-                
-                if (string.IsNullOrEmpty(leagueId) && leagueResult?.leagues != null)
+                else
                 {
-                     var l = leagueResult.leagues.FirstOrDefault();
-                     if (l != null) 
-                     {
-                         leagueId = l.idLeague;
-                         _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
-                     }
+                    var leagueResult = await _client.SearchLeagueAsync(seriesName, cancellationToken).ConfigureAwait(false);
+                    if (leagueResult?.countrys != null)
+                    {
+                         var l = leagueResult.countrys.FirstOrDefault();
+                         if (l != null) 
+                         {
+                             leagueId = l.idLeague;
+                             _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                         }
+                    }
+                    
+                    if (string.IsNullOrEmpty(leagueId) && leagueResult?.leagues != null)
+                    {
+                         var l = leagueResult.leagues.FirstOrDefault();
+                         if (l != null) 
+                         {
+                             leagueId = l.idLeague;
+                             _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                         }
+                    }
                 }
             }
         }
@@ -430,6 +441,40 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         return false;
     }
     
+    private async Task<string?> ResolveLeagueIdFromDbAsync(string name, CancellationToken cancellationToken)
+    {
+        try 
+        {
+            var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+            var pluginDir = System.IO.Path.GetDirectoryName(assemblyLocation);
+            var dbPath = System.IO.Path.Combine(pluginDir!, "sports_leagues.db");
+            
+            if (!System.IO.File.Exists(dbPath)) return null;
+
+            using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT league_id FROM sports_leagues WHERE league_name = $name COLLATE NOCASE
+                UNION
+                SELECT league_id FROM alternative_names WHERE alt_name = $name COLLATE NOCASE
+                LIMIT 1";
+            command.Parameters.AddWithValue("$name", name);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            if (result != null && result != DBNull.Value)
+            {
+                return result.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to query local sports_leagues.db");
+        }
+        return null;
+    }
+
     private string CleanName(string input, string? seriesName = null)
     {
         // Remove Dates
