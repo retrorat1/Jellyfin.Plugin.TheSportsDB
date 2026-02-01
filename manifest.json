@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/retrorat1/Jellyfin.Plugin.TheSportsDB/main/thumb.png",
     "versions": [
       {
+        "version": "1.0.18.0",
+        "changelog": "Fixed team matching for abbreviated names (e.g. STL vs LAK) and improved logging",
+        "targetAbi": "10.0.0.0",
+        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.18/Jellyfin.Plugin.TheSportsDB.zip",
+        "checksum": "CF0C191EC044B89AB61351A322603B6E",
+        "timestamp": "2026-02-01T00:00:00Z"
+      },
+      {
         "version": "1.0.17.0",
         "changelog": "Applied timezone (T+/-1) fuzzy match to primary name search to fix missing events",
         "targetAbi": "10.0.0.0",
