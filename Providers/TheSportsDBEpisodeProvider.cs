@@ -344,32 +344,60 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         return null;
     }
     
+    private static readonly Dictionary<string, string> TeamAbbreviations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // NHL
+        { "ANA", "Anaheim Ducks" }, { "BOS", "Boston Bruins" }, { "BUF", "Buffalo Sabres" },
+        { "CGY", "Calgary Flames" }, { "CAR", "Carolina Hurricanes" }, { "CHI", "Chicago Blackhawks" },
+        { "COL", "Colorado Avalanche" }, { "CBJ", "Columbus Blue Jackets" }, { "DAL", "Dallas Stars" },
+        { "DET", "Detroit Red Wings" }, { "EDM", "Edmonton Oilers" }, { "FLA", "Florida Panthers" },
+        { "LAK", "Los Angeles Kings" }, { "MIN", "Minnesota Wild" }, { "MTL", "Montreal Canadiens" },
+        { "NSH", "Nashville Predators" }, { "NJD", "New Jersey Devils" }, { "NYI", "New York Islanders" },
+        { "NYR", "New York Rangers" }, { "OTT", "Ottawa Senators" }, { "PHI", "Philadelphia Flyers" },
+        { "PIT", "Pittsburgh Penguins" }, { "SJS", "San Jose Sharks" }, { "SEA", "Seattle Kraken" },
+        { "STL", "St. Louis Blues" }, { "TBL", "Tampa Bay Lightning" }, { "TOR", "Toronto Maple Leafs" },
+        { "UTA", "Utah Hockey Club" }, { "VAN", "Vancouver Canucks" }, { "VGK", "Vegas Golden Knights" },
+        { "WSH", "Washington Capitals" }, { "WPG", "Winnipeg Jets" },
+        // NFL (Examples)
+        { "ARI", "Arizona Cardinals" }, { "ATL", "Atlanta Falcons" }, { "KKC", "Kansas City Chiefs" },
+        { "GBP", "Green Bay Packers" }, { "NEP", "New England Patriots" }
+    };
+
     private async Task<bool> CheckTeamIdMatch(string part, string? idHome, string? idAway, CancellationToken cancellationToken)
     {
         // Don't search for very short/common strings that are not likely teams unless they look like abbreviations (2-4 chars)
         if (part.Length < 2 || part.Length > 4) return false;
 
-        // Strategy: Instead of searching for the abbreviation (which is unreliable),
-        // fetch the actual teams involved in the event and check their abbreviations.
-        
         var teamsToCheck = new[] { idHome, idAway };
         foreach (var teamId in teamsToCheck)
         {
             if (string.IsNullOrEmpty(teamId)) continue;
 
-            // TODO: Add caching here to avoid spamming the API for the same team ID across multiple checks
+            // TODO: Add caching here.
             var teamResult = await _client.GetTeamAsync(teamId, cancellationToken).ConfigureAwait(false);
             var team = teamResult?.teams?.FirstOrDefault();
             
             if (team != null)
             {
-                // Check strTeamShort
+                // 1. Check strTeamShort (API provided abbreviation)
                 if (string.Equals(team.strTeamShort, part, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
                 
-                // Also check strTeam (full name) just in case
+                // 2. Check internal Abbreviation Map
+                if (TeamAbbreviations.TryGetValue(part, out var fullTeamName))
+                {
+                    // Check if the team's full name matches our mapped name
+                    // We use Contains or fuzzy match because "St. Louis Blues" might be "St Louis Blues" in DB?
+                    // But StartsWith is usually safe. 
+                    if (team.strTeam.Replace(".", "").StartsWith(fullTeamName.Replace(".", ""), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+
+                // 3. Check strTeam (full name) starts with part (e.g. Part="Liverpool", Team="Liverpool FC")
                 if (team.strTeam.StartsWith(part, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
@@ -387,6 +415,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         
         if (dayResults?.events != null)
         {
+             _logger.LogInformation("TheSportsDB: Found {Count} events on {Date}. Checking for match against '{CleanName}'", dayResults.events.Count, date, cleanName);
+
              foreach (var ev in dayResults.events)
              {
                  // 1. Single Event Match (High Confidence if filtered by League)
@@ -399,11 +429,13 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
                  // 2. Name Containment Match
                  if (ev.strEvent.IndexOf(cleanName, StringComparison.OrdinalIgnoreCase) >= 0)
                  {
+                     _logger.LogInformation("TheSportsDB: Name containment match: '{CleanName}' in '{Event}'", cleanName, ev.strEvent);
                      return ev;
                  }
                  
                  // 3. Abbreviation / Parts Match
-                 var parts = cleanName.Split(new[] { ' ', '-', 'v', 's', '.' }, StringSplitOptions.RemoveEmptyEntries);
+                 // Use string separators to avoid splitting words like "Kings" on 's' or "Avalanche" on 'v'
+                 var parts = cleanName.Split(new[] { " vs ", " Vs ", " VS ", " v ", " V ", "-", ".", " " }, StringSplitOptions.RemoveEmptyEntries);
                  
                  if (parts.Length >= 2 && !string.IsNullOrEmpty(ev.strHomeTeam) && !string.IsNullOrEmpty(ev.strAwayTeam))
                  {
@@ -424,6 +456,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
                          return ev;
                      }
 
+                     _logger.LogDebug("TheSportsDB: Basic prefix match failed for {P1}/{P2} against {Home}/{Away}. Checking IDs...", p1, p2, ev.strHomeTeam, ev.strAwayTeam);
+
                      // Advanced Lookup: If simple StartsWith failed, try to Resolve Team by Abbreviation
                      if (!match1) match1 = await CheckTeamIdMatch(p1, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
                      if (!match2) match2 = await CheckTeamIdMatch(p2, ev.idHomeTeam, ev.idAwayTeam, cancellationToken).ConfigureAwait(false);
@@ -433,9 +467,18 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
                          _logger.LogInformation("TheSportsDB: Abbreviation match found (TeamID Lookup): {P1}/{P2} matched Event {Event}", p1, p2, ev.strEvent);
                          return ev;
                      }
+                     else 
+                     {
+                         _logger.LogDebug("TheSportsDB: Failed to match {P1}/{P2} against Event {Event} (Match1: {M1}, Match2: {M2})", p1, p2, ev.strEvent, match1, match2);
+                     }
                  }
              }
         }
+        else
+        {
+            _logger.LogInformation("TheSportsDB: No events returned by API for Date {Date}", date);
+        }
+
         return null;
     }
     private async Task<string?> ResolveLeagueIdFromDbAsync(string name, CancellationToken cancellationToken)
