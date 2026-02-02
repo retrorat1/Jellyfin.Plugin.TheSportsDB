@@ -187,10 +187,11 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         var matchDate = MatchDate(info.Name);
         var seriesNameToStrip = seriesName;
         var cleanName = CleanName(info.Name, seriesNameToStrip);
+        var expandedName = await ExpandAbbreviationsAsync(cleanName, cancellationToken).ConfigureAwait(false);
 
-        _logger.LogDebug("TheSportsDB: Cleaned name: {CleanName}, Date: {Date}", cleanName, matchDate);
+        _logger.LogDebug("TheSportsDB: Cleaned name: {CleanName}, Expanded: {ExpandedName}, Date: {Date}", cleanName, expandedName, matchDate);
 
-        var searchResults = await _client.SearchEventsAsync(cleanName, cancellationToken).ConfigureAwait(false);
+        var searchResults = await _client.SearchEventsAsync(expandedName, cancellationToken).ConfigureAwait(false);
         if (searchResults?.events != null)
         {
             // Filter by date if we have one
@@ -533,5 +534,94 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         s = s.Replace("EPL", "", StringComparison.OrdinalIgnoreCase);
         
         return s.Trim().Trim('-', ' ', '.');
+    }
+
+    private async Task<string> ExpandAbbreviationsAsync(string input, CancellationToken cancellationToken)
+    {
+        // Split by common separators to find team parts
+        // "TOR-COL" -> "TOR", "COL"
+        // "Dallas Stars vs BOS" -> "Dallas Stars", "BOS"
+        var parts = input.Split(new[] { " vs ", " Vs ", " VS ", " v ", " V ", "-", " vs. " }, StringSplitOptions.RemoveEmptyEntries);
+        
+        if (parts.Length == 2)
+        {
+            var p1 = parts[0].Trim();
+            var p2 = parts[1].Trim();
+            
+            bool expanded = false;
+
+            // Check Internal Map First
+            if (TeamAbbreviations.TryGetValue(p1, out var f1))
+            {
+                p1 = f1;
+                expanded = true;
+            }
+            // Check DB
+            else 
+            {
+                var dbName = await ResolveTeamNameFromDbAsync(p1, cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(dbName))
+                {
+                    p1 = dbName;
+                    expanded = true;
+                }
+            }
+
+            // Check Internal Map First
+            if (TeamAbbreviations.TryGetValue(p2, out var f2))
+            {
+                p2 = f2;
+                expanded = true;
+            }
+            // Check DB
+            else
+            {
+                var dbName = await ResolveTeamNameFromDbAsync(p2, cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(dbName))
+                {
+                    p2 = dbName;
+                    expanded = true;
+                }
+            }
+
+            if (expanded)
+            {
+                return $"{p1} vs {p2}";
+            }
+        }
+
+        return input;
+    }
+
+    private async Task<string?> ResolveTeamNameFromDbAsync(string abbreviation, CancellationToken cancellationToken)
+    {
+         try 
+        {
+            var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+            var pluginDir = System.IO.Path.GetDirectoryName(assemblyLocation);
+            var dbPath = System.IO.Path.Combine(pluginDir!, "sports_leagues.db");
+            
+            if (!System.IO.File.Exists(dbPath)) return null;
+
+            using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            using var command = connection.CreateCommand();
+            // Expecting table 'team_abbreviations' with columns 'abbreviation' and 'full_name'
+            command.CommandText = "SELECT full_name FROM team_abbreviations WHERE abbreviation = $abbr COLLATE NOCASE LIMIT 1";
+            command.Parameters.AddWithValue("$abbr", abbreviation);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            if (result != null && result != DBNull.Value)
+            {
+                return result.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log verbose/debug to avoid spamming if table doesn't exist yet
+            _logger.LogDebug(ex, "Failed to resolve team abbreviation from DB: {Abbr}", abbreviation);
+        }
+        return null;
     }
 }
