@@ -17,7 +17,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Configuration\configPage.html" />
     <EmbeddedResource Include="thumb.png" />
-    <None Include="sports_leagues.db">
+    <None Include="sports_resolver.db">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

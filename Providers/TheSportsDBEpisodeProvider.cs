@@ -488,7 +488,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         {
             var assemblyLocation = Assembly.GetExecutingAssembly().Location;
             var pluginDir = System.IO.Path.GetDirectoryName(assemblyLocation);
-            var dbPath = System.IO.Path.Combine(pluginDir!, "sports_leagues.db");
+            var dbPath = System.IO.Path.Combine(pluginDir!, "sports_resolver.db");
             
             if (!System.IO.File.Exists(dbPath)) return null;
 
@@ -496,10 +496,11 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             using var command = connection.CreateCommand();
+            // Search 'leagues' for direct match, or 'teams' to determine league from a team name/abbr
             command.CommandText = @"
-                SELECT league_id FROM sports_leagues WHERE league_name = $name COLLATE NOCASE
+                SELECT id FROM leagues WHERE name = $name COLLATE NOCASE
                 UNION
-                SELECT league_id FROM alternative_names WHERE alt_name = $name COLLATE NOCASE
+                SELECT league_id FROM teams WHERE name = $name COLLATE NOCASE OR short_name = $name COLLATE NOCASE
                 LIMIT 1";
             command.Parameters.AddWithValue("$name", name);
 
@@ -511,7 +512,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to query local sports_leagues.db");
+            _logger.LogError(ex, "Failed to query local sports_resolver.db for league id");
         }
         return null;
     }
@@ -599,7 +600,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         {
             var assemblyLocation = Assembly.GetExecutingAssembly().Location;
             var pluginDir = System.IO.Path.GetDirectoryName(assemblyLocation);
-            var dbPath = System.IO.Path.Combine(pluginDir!, "sports_leagues.db");
+            var dbPath = System.IO.Path.Combine(pluginDir!, "sports_resolver.db");
             
             if (!System.IO.File.Exists(dbPath)) return null;
 
@@ -607,8 +608,9 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             using var command = connection.CreateCommand();
-            // Expecting table 'team_abbreviations' with columns 'abbreviation' and 'full_name'
-            command.CommandText = "SELECT full_name FROM team_abbreviations WHERE abbreviation = $abbr COLLATE NOCASE LIMIT 1";
+            // Table structure provided: id, name, sport_id, stripped_name, country, short_name, alternative_names, league_id
+            // We search by short_name (abbreviation) to find the full name.
+            command.CommandText = "SELECT name FROM teams WHERE short_name = $abbr COLLATE NOCASE LIMIT 1";
             command.Parameters.AddWithValue("$abbr", abbreviation);
 
             var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
@@ -619,7 +621,6 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         }
         catch (Exception ex)
         {
-            // Log verbose/debug to avoid spamming if table doesn't exist yet
             _logger.LogDebug(ex, "Failed to resolve team abbreviation from DB: {Abbr}", abbreviation);
         }
         return null;
