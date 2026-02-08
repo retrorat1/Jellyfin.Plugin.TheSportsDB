@@ -12,9 +12,16 @@ A Jellyfin metadata provider plugin for [TheSportsDB](https://www.thesportsdb.co
 
 ## Installation
 
-1. Download the latest release.
+### From Release
+1. Download the latest release zip from the [Releases page](https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases).
 2. Extract the DLL to your Jellyfin plugins folder.
 3. Restart Jellyfin.
+
+### Build from Source
+1. Clone the repository
+2. Run `build-and-package.ps1` (Windows) to build the plugin
+3. The plugin zip will be created in the project root directory
+4. Extract the contents to your Jellyfin plugins folder
 
 ## Configuration
 

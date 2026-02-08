@@ -18,6 +18,7 @@ x86/
 *.pdb
 *.exe
 *.cache
+*.zip
 
 # NuGet Packages
 *.nupkg

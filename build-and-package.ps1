@@ -64,7 +64,4 @@ Write-Host "Build and Package Complete!" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "`nNext steps:" -ForegroundColor Yellow
 Write-Host "  1. Test the plugin locally with deploy.ps1" -ForegroundColor White
-Write-Host "  2. Commit and push the updated zip to GitHub:" -ForegroundColor White
-Write-Host "     git add $ZipName" -ForegroundColor Gray
-Write-Host "     git commit -m 'Update plugin package'" -ForegroundColor Gray
-Write-Host "     git push origin main" -ForegroundColor Gray
+Write-Host "  2. Create a GitHub release and attach the zip file" -ForegroundColor White
