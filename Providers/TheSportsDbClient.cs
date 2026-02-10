@@ -69,10 +69,9 @@ public class TheSportsDbClient
     {
         var d = date.ToString("yyyy-MM-dd");
         var url = $"{BaseUrl}/eventsday.php?d={d}";
-        if (!string.IsNullOrEmpty(leagueId))
-        {
-            url += $"&l={leagueId}";
-        }
+        // Parameter 'l' (League ID/Name) is unreliable on this endpoint. 
+        // We will fetch all events for the day and filter by leagueId on the client side.
+        
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
 

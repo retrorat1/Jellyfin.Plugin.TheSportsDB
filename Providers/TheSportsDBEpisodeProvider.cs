@@ -187,7 +187,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         var matchDate = MatchDate(info.Name);
         var seriesNameToStrip = seriesName;
         var cleanName = CleanName(info.Name, seriesNameToStrip);
-        var expandedName = await ExpandAbbreviationsAsync(cleanName, cancellationToken).ConfigureAwait(false);
+        var expandedName = await ExpandAbbreviationsAsync(cleanName, leagueId, cancellationToken).ConfigureAwait(false);
 
         _logger.LogDebug("TheSportsDB: Cleaned name: {CleanName}, Expanded: {ExpandedName}, Date: {Date}", cleanName, expandedName, matchDate);
 
@@ -416,12 +416,18 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         
         if (dayResults?.events != null)
         {
-             _logger.LogInformation("TheSportsDB: Found {Count} events on {Date}. Checking for match against '{CleanName}'", dayResults.events.Count, date, cleanName);
+             var events = dayResults.events;
+             if (!string.IsNullOrEmpty(leagueId))
+             {
+                 events = events.Where(e => e.idLeague == leagueId).ToList();
+             }
 
-             foreach (var ev in dayResults.events)
+             _logger.LogInformation("TheSportsDB: Found {Count} events on {Date}. Checking for match against '{CleanName}'", events.Count, date, cleanName);
+
+             foreach (var ev in events)
              {
                  // 1. Single Event Match (High Confidence if filtered by League)
-                 if (dayResults.events.Count == 1 && !string.IsNullOrEmpty(leagueId))
+                 if (events.Count == 1 && !string.IsNullOrEmpty(leagueId))
                  {
                      _logger.LogInformation("TheSportsDB: Single event found for date/league. Accepting match: {Event}", ev.strEvent);
                      return ev;
@@ -522,6 +528,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Remove Dates
         var s = Regex.Replace(input, @"\d{4}-\d{2}-\d{2}", ""); // YYYY-MM-DD
         s = Regex.Replace(s, @"\d{2}-\d{2}-\d{4}", ""); // DD-MM-YYYY
+        s = Regex.Replace(s, @"\d{4}-\d{4}", ""); // YYYY-YYYY (Season)
         
         // Remove League Prefixes common in filename but not in Event Name
         // E.g. "NHL ", "EPL "
@@ -537,7 +544,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         return s.Trim().Trim('-', ' ', '.');
     }
 
-    private async Task<string> ExpandAbbreviationsAsync(string input, CancellationToken cancellationToken)
+    private async Task<string> ExpandAbbreviationsAsync(string input, string? leagueId, CancellationToken cancellationToken)
     {
         // Split by common separators to find team parts
         // "TOR-COL" -> "TOR", "COL"
@@ -560,7 +567,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             // Check DB
             else 
             {
-                var dbName = await ResolveTeamNameFromDbAsync(p1, cancellationToken).ConfigureAwait(false);
+                var dbName = await ResolveTeamNameFromDbAsync(p1, leagueId, cancellationToken).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(dbName))
                 {
                     p1 = dbName;
@@ -577,7 +584,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             // Check DB
             else
             {
-                var dbName = await ResolveTeamNameFromDbAsync(p2, cancellationToken).ConfigureAwait(false);
+                var dbName = await ResolveTeamNameFromDbAsync(p2, leagueId, cancellationToken).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(dbName))
                 {
                     p2 = dbName;
@@ -594,7 +601,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         return input;
     }
 
-    private async Task<string?> ResolveTeamNameFromDbAsync(string abbreviation, CancellationToken cancellationToken)
+    private async Task<string?> ResolveTeamNameFromDbAsync(string abbreviation, string? leagueId, CancellationToken cancellationToken)
     {
          try 
         {
@@ -610,7 +617,16 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             using var command = connection.CreateCommand();
             // Table structure provided: id, name, sport_id, stripped_name, country, short_name, alternative_names, league_id
             // We search by short_name (abbreviation) to find the full name.
-            command.CommandText = "SELECT name FROM teams WHERE short_name = $abbr COLLATE NOCASE LIMIT 1";
+            
+            var sql = "SELECT name FROM teams WHERE short_name = $abbr COLLATE NOCASE";
+            if (!string.IsNullOrEmpty(leagueId))
+            {
+                sql += " AND league_id = $leagueId";
+                command.Parameters.AddWithValue("$leagueId", leagueId);
+            }
+            sql += " LIMIT 1";
+
+            command.CommandText = sql;
             command.Parameters.AddWithValue("$abbr", abbreviation);
 
             var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
