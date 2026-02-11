@@ -13,11 +13,23 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Data.Sqlite;
+using System.Reflection;
 
 public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, SeriesInfo>, IRemoteImageProvider
 {
     private readonly TheSportsDbClient _client;
     private readonly ILogger<TheSportsDBMetadataProvider> _logger;
+
+    private static readonly Dictionary<string, string> KnownLeagueIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "NHL", "4380" },
+        { "EPL", "4328" },
+        { "NFL", "4391" },
+        { "NBA", "4387" },
+        { "MLB", "4424" },
+        { "UFC", "4463" } 
+    };
 
     public string Name => "TheSportsDB";
     
@@ -78,6 +90,52 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
         }
 
         _logger.LogInformation("TheSportsDB: Found {Count} results for {Name}", list.Count, searchInfo.Name);
+
+        if (list.Count == 0)
+        {
+            // 1. Check User-Defined Mappings (Fastest & User Preference)
+            var config = Plugin.Instance?.Configuration;
+            if (config != null && config.LeagueMappings != null)
+            {
+                var mapping = config.LeagueMappings.FirstOrDefault(m => string.Equals(m.Name, searchInfo.Name, StringComparison.OrdinalIgnoreCase));
+                if (mapping != null && !string.IsNullOrEmpty(mapping.LeagueId))
+                {
+                     _logger.LogInformation("TheSportsDB: Found {Name} in User Mappings with ID {Id}", searchInfo.Name, mapping.LeagueId);
+                     list.Add(new RemoteSearchResult
+                     {
+                         Name = searchInfo.Name,
+                         ProviderIds = { { "TheSportsDB", mapping.LeagueId } }
+                     });
+                     return list; // Return immediately if user mapping found
+                }
+            }
+
+            // 2. Fallback: Check internal map
+            if (KnownLeagueIds.TryGetValue(searchInfo.Name, out var knownId))
+            {
+                 _logger.LogInformation("TheSportsDB: Found {Name} in internal map with ID {Id}", searchInfo.Name, knownId);
+                 list.Add(new RemoteSearchResult
+                 {
+                     Name = searchInfo.Name,
+                     ProviderIds = { { "TheSportsDB", knownId } }
+                 });
+            }
+            else
+            {
+                // Fallback: Check local DB
+                var dbId = await ResolveLeagueIdFromDbAsync(searchInfo.Name, cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(dbId))
+                {
+                    _logger.LogInformation("TheSportsDB: Found {Name} in local DB with ID {Id}", searchInfo.Name, dbId);
+                    list.Add(new RemoteSearchResult
+                    {
+                        Name = searchInfo.Name,
+                        ProviderIds = { { "TheSportsDB", dbId } }
+                    });
+                }
+            }
+        }
+
         return list;
     }
 
@@ -165,5 +223,42 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
         }
         
         return list;
+    }
+
+    private async Task<string?> ResolveLeagueIdFromDbAsync(string name, CancellationToken cancellationToken)
+    {
+        try 
+        {
+            var assemblyLocation = Assembly.GetExecutingAssembly().Location;
+            var pluginDir = System.IO.Path.GetDirectoryName(assemblyLocation);
+            var dbPath = System.IO.Path.Combine(pluginDir!, "sports_resolver.db");
+            
+            if (!System.IO.File.Exists(dbPath)) return null;
+
+            using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            using var command = connection.CreateCommand();
+            // Search 'leagues' for direct match, use 'teams' or 'league_aliases' for alt names
+            command.CommandText = @"
+                SELECT id FROM leagues WHERE name = $name COLLATE NOCASE
+                UNION
+                SELECT league_id FROM teams WHERE name = $name COLLATE NOCASE OR short_name = $name COLLATE NOCASE
+                UNION
+                SELECT league_id FROM league_aliases WHERE alias = $name COLLATE NOCASE
+                LIMIT 1";
+            command.Parameters.AddWithValue("$name", name);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            if (result != null && result != DBNull.Value)
+            {
+                return result.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to query local sports_resolver.db for league id");
+        }
+        return null;
     }
 }

@@ -135,7 +135,19 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             
             _logger.LogInformation("TheSportsDB: League ID missing. Attempting to resolve league from Path-Derived Series Name: {SeriesName}", seriesName);
             
-            if (KnownLeagueIds.TryGetValue(seriesName, out var knownId))
+            // 0. Check User Mappings
+            var config = Plugin.Instance?.Configuration;
+            if (config != null && config.LeagueMappings != null)
+            {
+                var mapping = config.LeagueMappings.FirstOrDefault(m => string.Equals(m.Name, seriesName, StringComparison.OrdinalIgnoreCase));
+                if (mapping != null && !string.IsNullOrEmpty(mapping.LeagueId))
+                {
+                     leagueId = mapping.LeagueId;
+                     _logger.LogInformation("TheSportsDB: Resolved League ID from User Mappings: {LeagueId} for {SeriesName}", leagueId, seriesName);
+                }
+            }
+
+            if (string.IsNullOrEmpty(leagueId) && KnownLeagueIds.TryGetValue(seriesName, out var knownId))
             {
                  leagueId = knownId;
                  _logger.LogInformation("TheSportsDB: Resolved League ID from internal map: {LeagueId} for {SeriesName}", leagueId, seriesName);
@@ -507,6 +519,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
                 SELECT id FROM leagues WHERE name = $name COLLATE NOCASE
                 UNION
                 SELECT league_id FROM teams WHERE name = $name COLLATE NOCASE OR short_name = $name COLLATE NOCASE
+                UNION
+                SELECT league_id FROM league_aliases WHERE alias = $name COLLATE NOCASE
                 LIMIT 1";
             command.Parameters.AddWithValue("$name", name);
 

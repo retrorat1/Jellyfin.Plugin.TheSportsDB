@@ -12,6 +12,25 @@
         .TheSportsDBConfigurationPage button {
             pointer-events: auto !important;
         }
+
+        #leagueMappingList {
+            margin-top: 20px;
+        }
+
+        .mappingItem {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .mappingItem input {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .mappingItem button {
+            flex: 0 0 auto;
+        }
     </style>
     <div data-role="content">
         <div class="content-primary">
@@ -21,6 +40,25 @@
                     <input id="TheSportsDBApiKey" name="TheSportsDBApiKey" type="text" is="emby-input" />
                     <div class="fieldDescription">TheSportsDB API Key (default: 3 for testing)</div>
                 </div>
+
+                <div class="inputContainer">
+                    <h2>League Mappings</h2>
+                    <p class="fieldDescription">Map your custom folder names (e.g., "EPL", "Süper Lig") to TheSportsDB
+                        League
+                        IDs.</p>
+                    <div id="leagueMappingList">
+                        <!-- Mappings will be injected here -->
+                    </div>
+                    <button is="emby-button" type="button" class="raised"
+                        onclick="TheSportsDBConfigurationPage.addMapping()">
+                        <span>Add Mapping</span>
+                    </button>
+                    <div class="fieldDescription">
+                        You can find League IDs on <a href="https://www.thesportsdb.com"
+                            target="_blank">TheSportsDB.com</a> (e.g. English Premier League is 4328).
+                    </div>
+                </div>
+
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
@@ -32,19 +70,63 @@
     <script type="text/javascript">
         var TheSportsDBConfigurationPage = {
             pluginId: '5fce2032-15f1-4171-4141-86105f201010', // Must match Plugin.Id
+
             update: function (page) {
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
                     page.querySelector('#TheSportsDBApiKey').value = config.ApiKey || '3';
+
+                    // Render Mappings
+                    var list = page.querySelector('#leagueMappingList');
+                    list.innerHTML = '';
+                    if (config.LeagueMappings) {
+                        config.LeagueMappings.forEach(function (m) {
+                            TheSportsDBConfigurationPage.renderMapping(list, m.Name, m.LeagueId);
+                        });
+                    }
+
                     Dashboard.hideLoadingMsg();
                 });
             },
+
             save: function (page) {
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
                     config.ApiKey = page.querySelector('#TheSportsDBApiKey').value;
-                    ApiClient.updatePluginConfiguration(TheSportsDBConfigurationPage.pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+
+                    // Save Mappings
+                    config.LeagueMappings = [];
+                    var items = page.querySelectorAll('.mappingItem');
+                    items.forEach(function (item) {
+                        var name = item.querySelector('.mappingName').value;
+                        var id = item.querySelector('.mappingId').value;
+                        if (name && id) {
+                            config.LeagueMappings.push({ Name: name, LeagueId: id });
+                        }
+                    });
+
+                    ApiClient.updatePluginConfiguration(TheSportsDBConfigurationPage.pluginId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
                 });
+            },
+
+            addMapping: function () {
+                var list = document.querySelector('#leagueMappingList');
+                TheSportsDBConfigurationPage.renderMapping(list, '', '');
+            },
+
+            renderMapping: function (container, name, id) {
+                var div = document.createElement('div');
+                div.className = 'mappingItem';
+                div.innerHTML = `
+                    <input type="text" is="emby-input" class="mappingName" placeholder="Folder Name (e.g. EPL)" value="${name || ''}" label="Folder Name"/>
+                    <input type="text" is="emby-input" class="mappingId" placeholder="League ID (e.g. 4328)" value="${id || ''}" label="League ID" />
+                    <button is="emby-button" type="button" class="raised" onclick="this.closest('.mappingItem').remove()">
+                        <span>Remove</span>
+                    </button>
+                `;
+                container.appendChild(div);
             }
         };
 
@@ -52,16 +134,17 @@
             var page = document.querySelector('.TheSportsDBConfigurationPage');
             if (page) {
                 page.addEventListener('pageshow', function () {
+                    // Re-bind submit listener here to ensure it's attached to the current view
+                    var form = this.querySelector('.TheSportsDBConfigForm');
+                    form.addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        TheSportsDBConfigurationPage.save(this.closest('.TheSportsDBConfigurationPage'));
+                        return false;
+                    });
+
                     TheSportsDBConfigurationPage.update(this);
                 });
             }
         })();
-
-
-        document.querySelector('.TheSportsDBConfigForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-            TheSportsDBConfigurationPage.save(this.closest('.TheSportsDBConfigurationPage'));
-            return false;
-        });
     </script>
 </div>
