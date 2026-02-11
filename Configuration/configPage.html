@@ -74,16 +74,20 @@
             update: function (page) {
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
-                    page.querySelector('#TheSportsDBApiKey').value = config.ApiKey || '3';
+                    // Handle Case Sensitivity (API usually returns camelCase)
+                    var apiKey = config.ApiKey || config.apiKey || '3';
+                    var mappings = config.LeagueMappings || config.leagueMappings || [];
+
+                    page.querySelector('#TheSportsDBApiKey').value = apiKey;
 
                     // Render Mappings
                     var list = page.querySelector('#leagueMappingList');
                     list.innerHTML = '';
-                    if (config.LeagueMappings) {
-                        config.LeagueMappings.forEach(function (m) {
-                            TheSportsDBConfigurationPage.renderMapping(list, m.Name, m.LeagueId);
-                        });
-                    }
+                    mappings.forEach(function (m) {
+                        var name = m.Name || m.name || '';
+                        var id = m.LeagueId || m.leagueId || '';
+                        TheSportsDBConfigurationPage.renderMapping(list, name, id);
+                    });
 
                     Dashboard.hideLoadingMsg();
                 });
@@ -92,18 +96,27 @@
             save: function (page) {
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
-                    config.ApiKey = page.querySelector('#TheSportsDBApiKey').value;
+                    var apiKey = page.querySelector('#TheSportsDBApiKey').value;
 
-                    // Save Mappings
-                    config.LeagueMappings = [];
+                    // We need to set the property that the server expects. 
+                    // To be safe, we try to set both or detect which one exists, but usually simple assignment is fine 
+                    // if we respect the case the server sent, or just set both to be sure.
+                    config.ApiKey = apiKey;
+                    config.apiKey = apiKey;
+
+                    // Mappings
+                    var newMappings = [];
                     var items = page.querySelectorAll('.mappingItem');
                     items.forEach(function (item) {
                         var name = item.querySelector('.mappingName').value;
                         var id = item.querySelector('.mappingId').value;
                         if (name && id) {
-                            config.LeagueMappings.push({ Name: name, LeagueId: id });
+                            newMappings.push({ Name: name, LeagueId: id, name: name, leagueId: id });
                         }
                     });
+
+                    config.LeagueMappings = newMappings;
+                    config.leagueMappings = newMappings;
 
                     ApiClient.updatePluginConfiguration(TheSportsDBConfigurationPage.pluginId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
@@ -113,18 +126,26 @@
 
             addMapping: function () {
                 var list = document.querySelector('#leagueMappingList');
-                TheSportsDBConfigurationPage.renderMapping(list, '', '');
+                if (list) {
+                    TheSportsDBConfigurationPage.renderMapping(list, '', '');
+                }
             },
 
             renderMapping: function (container, name, id) {
                 var div = document.createElement('div');
                 div.className = 'mappingItem';
+                div.style.display = 'flex';
+                div.style.alignItems = 'center';
+                div.style.marginBottom = '10px';
+
                 div.innerHTML = `
-                    <input type="text" is="emby-input" class="mappingName" placeholder="Folder Name (e.g. EPL)" value="${name || ''}" label="Folder Name"/>
-                    <input type="text" is="emby-input" class="mappingId" placeholder="League ID (e.g. 4328)" value="${id || ''}" label="League ID" />
-                    <button is="emby-button" type="button" class="raised" onclick="this.closest('.mappingItem').remove()">
-                        <span>Remove</span>
-                    </button>
+                    <div style="flex-grow:1; margin-right:10px;">
+                        <input type="text" is="emby-input" class="mappingName" label="Folder Name" value="${name}" />
+                    </div>
+                    <div style="flex-grow:1; margin-right:10px;">
+                        <input type="text" is="emby-input" class="mappingId" label="League ID" value="${id}" />
+                    </div>
+                    <button type="button" is="emby-button" class="raised" onclick="this.closest('.mappingItem').remove()">Remove</button>
                 `;
                 container.appendChild(div);
             }
@@ -133,14 +154,17 @@
         (function () {
             var page = document.querySelector('.TheSportsDBConfigurationPage');
             if (page) {
+                // Remove any existing listeners to prevent duplicates (using specialized event namespace if jQuery was available, but here we just re-add)
+                // Actually in vanilla JS, we rely on pageshow behaving.
+
                 page.addEventListener('pageshow', function () {
-                    // Re-bind submit listener here to ensure it's attached to the current view
                     var form = this.querySelector('.TheSportsDBConfigForm');
-                    form.addEventListener('submit', function (e) {
+                    // Use onsubmit to ensure single listener
+                    form.onsubmit = function (e) {
                         e.preventDefault();
-                        TheSportsDBConfigurationPage.save(this.closest('.TheSportsDBConfigurationPage'));
+                        TheSportsDBConfigurationPage.save(page);
                         return false;
-                    });
+                    };
 
                     TheSportsDBConfigurationPage.update(this);
                 });
