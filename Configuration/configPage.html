@@ -75,7 +75,9 @@
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(TheSportsDBConfigurationPage.pluginId).then(function (config) {
                     // Handle Case Sensitivity (API usually returns camelCase)
-                    var apiKey = config.ApiKey || config.apiKey || '3';
+                    var apiKey = config.ApiKey || config.apiKey;
+                    if (!apiKey) apiKey = '3';
+
                     var mappings = config.LeagueMappings || config.leagueMappings || [];
 
                     page.querySelector('#TheSportsDBApiKey').value = apiKey;
@@ -157,8 +159,8 @@
                 // Remove any existing listeners to prevent duplicates (using specialized event namespace if jQuery was available, but here we just re-add)
                 // Actually in vanilla JS, we rely on pageshow behaving.
 
-                page.addEventListener('pageshow', function () {
-                    var form = this.querySelector('.TheSportsDBConfigForm');
+                var onPageShow = function () {
+                    var form = page.querySelector('.TheSportsDBConfigForm');
                     // Use onsubmit to ensure single listener
                     form.onsubmit = function (e) {
                         e.preventDefault();
@@ -166,8 +168,26 @@
                         return false;
                     };
 
-                    TheSportsDBConfigurationPage.update(this);
-                });
+                    // Also attach to the button directly as a fallback
+                    var btn = page.querySelector('.button-submit');
+                    if (btn) {
+                        btn.onclick = function (e) {
+                            e.preventDefault();
+                            TheSportsDBConfigurationPage.save(page);
+                            return false;
+                        };
+                    }
+
+                    TheSportsDBConfigurationPage.update(page);
+                };
+
+                page.addEventListener('pageshow', onPageShow);
+
+                // If page is already visible (sometimes pageshow is missed), run it now
+                if (!page.getAttribute('data-pageshow-initialized')) {
+                    page.setAttribute('data-pageshow-initialized', 'true');
+                    onPageShow();
+                }
             }
         })();
     </script>
