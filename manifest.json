@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/retrorat1/Jellyfin.Plugin.TheSportsDB/main/thumb.png",
     "versions": [
       {
+        "version": "1.0.22.0",
+        "changelog": "Added League Mapping configuration to allow custom folder names (e.g. 'Süper Lig' -> '4339')",
+        "targetAbi": "10.0.0.0",
+        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.22/Jellyfin.Plugin.TheSportsDB.zip",
+        "checksum": "f2410a2c7f90884833f68a1d32b6f505",
+        "timestamp": "2026-02-11T13:00:00Z"
+      },
+      {
         "version": "1.0.21.0",
         "changelog": "Fixed event matching by removing unreliable API parameter and improved abbreviation support with league context",
         "targetAbi": "10.0.0.0",
