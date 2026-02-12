@@ -147,41 +147,45 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
                 }
             }
 
+            // 1. Internal Map
             if (string.IsNullOrEmpty(leagueId) && KnownLeagueIds.TryGetValue(seriesName, out var knownId))
             {
                  leagueId = knownId;
                  _logger.LogInformation("TheSportsDB: Resolved League ID from internal map: {LeagueId} for {SeriesName}", leagueId, seriesName);
             }
-            else
+
+            // 2. Local DB
+            if (string.IsNullOrEmpty(leagueId))
             {
-                // Try Local DB
                 leagueId = await ResolveLeagueIdFromDbAsync(seriesName, cancellationToken).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(leagueId))
                 {
                     _logger.LogInformation("TheSportsDB: Resolved League ID from local DB: {LeagueId} for {SeriesName}", leagueId, seriesName);
                 }
-                else
+            }
+
+            // 3. API Search (Last Resort)
+            if (string.IsNullOrEmpty(leagueId))
+            {
+                var leagueResult = await _client.SearchLeagueAsync(seriesName, cancellationToken).ConfigureAwait(false);
+                if (leagueResult?.countrys != null)
                 {
-                    var leagueResult = await _client.SearchLeagueAsync(seriesName, cancellationToken).ConfigureAwait(false);
-                    if (leagueResult?.countrys != null)
-                    {
-                         var l = leagueResult.countrys.FirstOrDefault();
-                         if (l != null) 
-                         {
-                             leagueId = l.idLeague;
-                             _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
-                         }
-                    }
-                    
-                    if (string.IsNullOrEmpty(leagueId) && leagueResult?.leagues != null)
-                    {
-                         var l = leagueResult.leagues.FirstOrDefault();
-                         if (l != null) 
-                         {
-                             leagueId = l.idLeague;
-                             _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
-                         }
-                    }
+                        var l = leagueResult.countrys.FirstOrDefault();
+                        if (l != null) 
+                        {
+                            leagueId = l.idLeague;
+                            _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                        }
+                }
+                
+                if (string.IsNullOrEmpty(leagueId) && leagueResult?.leagues != null)
+                {
+                        var l = leagueResult.leagues.FirstOrDefault();
+                        if (l != null) 
+                        {
+                            leagueId = l.idLeague;
+                            _logger.LogInformation("TheSportsDB: Resolved League ID: {LeagueId} for Series: {SeriesName}", leagueId, seriesName);
+                        }
                 }
             }
         }
@@ -353,6 +357,29 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Try DD-MM-YYYY
         m = Regex.Match(input, @"(\d{2}-\d{2}-\d{4})");
         if (m.Success && DateTime.TryParseExact(m.Groups[1].Value, "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d)) return d;
+
+        // Try YYYY MM DD (e.g. 2026 02 08)
+        m = Regex.Match(input, @"(\d{4}) (\d{2}) (\d{2})");
+        if (m.Success)
+        {
+             if (DateTime.TryParse($"{m.Groups[1].Value}-{m.Groups[2].Value}-{m.Groups[3].Value}", out d)) return d;
+        }
+
+        // Try DD MM (e.g. 08 02) - Assume current year or look for year
+        m = Regex.Match(input, @"(\d{2}) (\d{2})");
+        if (m.Success)
+        {
+             // Look for year separately
+             var yMatch = Regex.Match(input, @"\b(20\d{2})\b");
+             int year = DateTime.Now.Year;
+             if (yMatch.Success && int.TryParse(yMatch.Groups[1].Value, out var y)) year = y;
+             
+             // Try assuming format is DD MM YYYY
+             if (DateTime.TryParseExact($"{m.Groups[1].Value}-{m.Groups[2].Value}-{year}", "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d)) return d;
+             
+             // Try MM DD YYYY
+             if (DateTime.TryParseExact($"{m.Groups[2].Value}-{m.Groups[1].Value}-{year}", "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d)) return d;
+        }
 
         return null;
     }
@@ -539,10 +566,11 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
 
     private string CleanName(string input, string? seriesName = null)
     {
-        // Remove Dates
-        var s = Regex.Replace(input, @"\d{4}-\d{2}-\d{2}", ""); // YYYY-MM-DD
-        s = Regex.Replace(s, @"\d{2}-\d{2}-\d{4}", ""); // DD-MM-YYYY
-        s = Regex.Replace(s, @"\d{4}-\d{4}", ""); // YYYY-YYYY (Season)
+        // Remove Dates (YYYY-MM-DD)
+        var s = Regex.Replace(input, @"\d{4}-\d{2}-\d{2}", ""); 
+        s = Regex.Replace(s, @"\d{2}-\d{2}-\d{4}", ""); 
+        s = Regex.Replace(s, @"\d{4}-\d{4}", ""); // Season ranges
+        s = Regex.Replace(s, @"\b20\d{2}\b", ""); // Standalone Year (start/end/space-bounded)
         
         // Remove League Prefixes common in filename but not in Event Name
         // E.g. "NHL ", "EPL "
@@ -554,6 +582,13 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Hardcoded fallbacks only if seriesName wasn't sufficient or provided
         s = s.Replace("NHL", "", StringComparison.OrdinalIgnoreCase);
         s = s.Replace("EPL", "", StringComparison.OrdinalIgnoreCase);
+        
+        // Remove Scene Tags
+        s = Regex.Replace(s, @"\b(720p|1080p|2160p|480p|x264|x265|HEVC|AAC|Fubo|WEBDL|WEB-DL|HDTV|h264|h265)\b", "", RegexOptions.IgnoreCase);
+        
+        // Remove trailing garbage (e.g. " 08 02 ", " - ")
+        // Wait, "08 02" is date. If MatchDate didn't remove it, we should if it looks like date garbage?
+        // But let's leave numbers if they might be scores or part of names for now, unless 4-digit year.
         
         return s.Trim().Trim('-', ' ', '.');
     }

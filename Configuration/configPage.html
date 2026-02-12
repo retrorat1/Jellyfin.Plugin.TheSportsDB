@@ -171,11 +171,8 @@
                     // Also attach to the button directly as a fallback
                     var btn = page.querySelector('.button-submit');
                     if (btn) {
-                        btn.onclick = function (e) {
-                            e.preventDefault();
-                            TheSportsDBConfigurationPage.save(page);
-                            return false;
-                        };
+                        // Remove any existing click handler (optional safety, though cleaner just to not add one)
+                        btn.onclick = null;
                     }
 
                     TheSportsDBConfigurationPage.update(page);
