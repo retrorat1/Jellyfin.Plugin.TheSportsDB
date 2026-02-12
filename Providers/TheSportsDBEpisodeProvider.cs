@@ -189,10 +189,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Determine the search name - use filename from path if info.Name is too generic
         var searchName = info.Name;
         
-        // If info.Name is the same as seriesName or very short, extract actual filename from path
-        if (!string.IsNullOrEmpty(info.Path) && 
-            (!string.IsNullOrEmpty(seriesName) && 
-             string.Equals(info.Name, seriesName, StringComparison.OrdinalIgnoreCase)))
+        // If info.Name is the same as seriesName, extract actual filename from path
+        if (ShouldUseFilenameFromPath(info.Name, info.Path, seriesName))
         {
             try
             {
@@ -306,6 +304,14 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         };
 
         return res;
+    }
+
+    private static bool ShouldUseFilenameFromPath(string? infoName, string? infoPath, string? seriesName)
+    {
+        return !string.IsNullOrEmpty(infoPath) &&
+               !string.IsNullOrEmpty(seriesName) &&
+               !string.IsNullOrEmpty(infoName) &&
+               string.Equals(infoName, seriesName, StringComparison.OrdinalIgnoreCase);
     }
 
     public Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
@@ -645,7 +651,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         
         // Remove language codes adjacent to quality/fps indicators (e.g., "720pEN", "60fpsEN")
         // Do this before removing fps indicators to catch the pattern
-        s = Regex.Replace(s, @"(\d{3,4}p|\d+fps)[A-Z]{2}\b", "$1", RegexOptions.IgnoreCase);
+        s = Regex.Replace(s, @"(\d{3,4}p|\d+fps)[A-Za-z]{2}\b", "$1", RegexOptions.IgnoreCase);
         
         // Remove frame rate indicators (e.g., 60fps, 30fps)
         s = Regex.Replace(s, @"\d+fps", "", RegexOptions.IgnoreCase);
