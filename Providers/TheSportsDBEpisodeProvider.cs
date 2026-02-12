@@ -641,12 +641,12 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Remove Scene Tags and video quality indicators
         s = Regex.Replace(s, @"\b(720p|1080p|2160p|480p|4K|x264|x265|HEVC|AAC|Fubo|WEBDL|WEB-DL|HDTV|h264|h265|BluRay|BDRip|WEBRip)\b", "", RegexOptions.IgnoreCase);
         
+        // Remove language codes adjacent to quality/fps indicators (e.g., "720pEN", "60fpsEN")
+        // Do this before removing fps indicators to catch the pattern
+        s = Regex.Replace(s, @"(\d{3,4}p|\d+fps)[A-Z]{2}\b", "$1", RegexOptions.IgnoreCase);
+        
         // Remove frame rate indicators (e.g., 60fps, 30fps)
         s = Regex.Replace(s, @"\d+fps", "", RegexOptions.IgnoreCase);
-        
-        // Remove common language codes that appear after quality indicators (more specific than all 2-letter codes)
-        // Only remove if they appear adjacent to numbers or quality tags to avoid removing team abbreviations
-        s = Regex.Replace(s, @"(?<=\d{3,4}p|fps)\s*[A-Z]{2}\b", "", RegexOptions.IgnoreCase);
         
         // Remove codec/source strings
         s = Regex.Replace(s, @"\b(PROPER|REPACK|iNTERNAL|DUBBED|SUBBED|LIMITED|EXTENDED)\b", "", RegexOptions.IgnoreCase);
