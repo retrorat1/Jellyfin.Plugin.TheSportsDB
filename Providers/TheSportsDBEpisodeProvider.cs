@@ -644,15 +644,12 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Remove frame rate indicators (e.g., 60fps, 30fps)
         s = Regex.Replace(s, @"\d+fps", "", RegexOptions.IgnoreCase);
         
-        // Remove language codes (e.g., EN, FR, DE as standalone words)
-        s = Regex.Replace(s, @"\b[A-Z]{2}\b", "");
+        // Remove common language codes that appear after quality indicators (more specific than all 2-letter codes)
+        // Only remove if they appear adjacent to numbers or quality tags to avoid removing team abbreviations
+        s = Regex.Replace(s, @"(?<=\d{3,4}p|fps)\s*[A-Z]{2}\b", "", RegexOptions.IgnoreCase);
         
         // Remove codec/source strings
         s = Regex.Replace(s, @"\b(PROPER|REPACK|iNTERNAL|DUBBED|SUBBED|LIMITED|EXTENDED)\b", "", RegexOptions.IgnoreCase);
-        
-        // Remove remaining loose DD MM digit pairs (date remnants) after main date extraction
-        // Only remove if they appear as isolated pairs
-        s = Regex.Replace(s, @"\b\d{2}\s+\d{2}\b", "");
         
         return s.Trim().Trim('-', ' ', '.');
     }
