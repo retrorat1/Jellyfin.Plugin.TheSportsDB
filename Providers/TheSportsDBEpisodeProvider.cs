@@ -21,6 +21,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
     private readonly TheSportsDbClient _client;
     private readonly ILogger<TheSportsDBEpisodeProvider> _logger;
 
+    private const int FutureDateThresholdDays = 7;
+
     private static readonly Dictionary<string, string> KnownLeagueIds = new(StringComparer.OrdinalIgnoreCase)
     {
         { "NHL", "4380" },
@@ -413,10 +415,10 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
              }
              
              // Return the most reasonable date:
-             // 1. Prefer dates not too far in the future (within 7 days)
+             // 1. Prefer dates not too far in the future (within threshold)
              // 2. If both valid, prefer the one closer to today
              var now = DateTime.Now;
-             var futureLimit = now.AddDays(7);
+             var futureLimit = now.AddDays(FutureDateThresholdDays);
              
              if (ddMmResult.HasValue && mmDdResult.HasValue)
              {
