@@ -667,7 +667,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         }
         
         // Remove combined scene tags like "720pEN30fps" - handle before individual patterns
-        // This regex removes language codes sandwiched between quality and fps indicators
+        // This regex removes language codes (2 chars) sandwiched between quality and fps indicators
+        // Common pattern: quality (720p) + language code (EN/ES/FR) + framerate (30fps)
         s = Regex.Replace(s, @"\b\d{3,4}p[A-Za-z]{2}\d+fps\b", "", RegexOptions.IgnoreCase);
         
         // Remove Scene Tags and video quality indicators
@@ -681,6 +682,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         s = Regex.Replace(s, @"\d+fps", "", RegexOptions.IgnoreCase);
         
         // Remove truncated source names like "Fub" (Fubo)
+        // Add more truncated names here as they are discovered (e.g., Daz for DAZN)
         s = Regex.Replace(s, @"\b(Fub)\b", "", RegexOptions.IgnoreCase);
         
         // Remove codec/source strings
