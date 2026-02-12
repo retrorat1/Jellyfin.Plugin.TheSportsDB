@@ -119,6 +119,7 @@ public class RootObject
     public List<League>? countrys { get; set; }
     public List<League>? leagues { get; set; }
     public List<Event>? events { get; set; }
+    public List<Event>? @event { get; set; }
     public List<Event>? eventresults { get; set; }
     public List<Team>? teams { get; set; }
 }

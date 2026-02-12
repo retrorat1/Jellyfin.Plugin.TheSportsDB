@@ -55,9 +55,10 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         var result = await _client.SearchEventsAsync(searchInfo.Name, cancellationToken).ConfigureAwait(false);
         var list = new List<RemoteSearchResult>();
 
-        if (result?.events != null)
+        var eventList = result?.events ?? result?.@event;
+        if (eventList != null)
         {
-            foreach (var ev in result.events)
+            foreach (var ev in eventList)
             {
                 list.Add(new RemoteSearchResult
                 {
@@ -222,10 +223,11 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         _logger.LogInformation("TheSportsDB: Search name: '{SearchName}', Cleaned: '{CleanName}', Expanded: '{ExpandedName}', Date: {Date}", searchName, cleanName, expandedName, matchDate);
 
         var searchResults = await _client.SearchEventsAsync(expandedName, cancellationToken).ConfigureAwait(false);
-        if (searchResults?.events != null)
+        var eventList = searchResults?.events ?? searchResults?.@event;
+        if (eventList != null)
         {
             // Filter by date if we have one
-            IEnumerable<Event> candidates = searchResults.events;
+            IEnumerable<Event> candidates = eventList;
             if (matchDate.HasValue)
             {
                 candidates = candidates.Where(e => 
@@ -639,12 +641,34 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         s = Regex.Replace(s, @"\d{4}-\d{4}", ""); // Season ranges
         s = Regex.Replace(s, @"\b20\d{2}\b", ""); // Standalone Year (start/end/space-bounded)
         
+        // Remove orphaned DD MM patterns left after year removal (e.g., "07 02")
+        s = Regex.Replace(s, @"\b\d{2}\s+\d{2}\b", "");
+        
         // Remove League Prefixes common in filename but not in Event Name
         // E.g. "NHL ", "EPL "
         if (!string.IsNullOrEmpty(seriesName))
         {
             s = s.Replace(seriesName, "", StringComparison.OrdinalIgnoreCase);
         }
+        
+        // Remove full league names that may appear in filenames
+        var fullLeagueNames = new[] 
+        {
+            "English Premier League",
+            "National Hockey League",
+            "National Football League",
+            "National Basketball Association",
+            "Major League Baseball",
+            "Ultimate Fighting Championship"
+        };
+        foreach (var league in fullLeagueNames)
+        {
+            s = s.Replace(league, "", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        // Remove combined scene tags like "720pEN30fps" - handle before individual patterns
+        // This regex removes language codes sandwiched between quality and fps indicators
+        s = Regex.Replace(s, @"\b\d{3,4}p[A-Za-z]{2}\d+fps\b", "", RegexOptions.IgnoreCase);
         
         // Remove Scene Tags and video quality indicators
         s = Regex.Replace(s, @"\b(720p|1080p|2160p|480p|4K|x264|x265|HEVC|AAC|Fubo|WEBDL|WEB-DL|HDTV|h264|h265|BluRay|BDRip|WEBRip)\b", "", RegexOptions.IgnoreCase);
@@ -655,6 +679,9 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         
         // Remove frame rate indicators (e.g., 60fps, 30fps)
         s = Regex.Replace(s, @"\d+fps", "", RegexOptions.IgnoreCase);
+        
+        // Remove truncated source names like "Fub" (Fubo)
+        s = Regex.Replace(s, @"\b(Fub)\b", "", RegexOptions.IgnoreCase);
         
         // Remove codec/source strings
         s = Regex.Replace(s, @"\b(PROPER|REPACK|iNTERNAL|DUBBED|SUBBED|LIMITED|EXTENDED)\b", "", RegexOptions.IgnoreCase);
