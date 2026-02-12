@@ -388,7 +388,7 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         }
 
         // Try DD MM (e.g. 08 02) - Handle ambiguity by trying both interpretations
-        m = Regex.Match(input, @"\b(\d{2}) (\d{2})(?!\d)");
+        m = Regex.Match(input, @"(?<!\d)(\d{2}) (\d{2})(?!\d)");
         if (m.Success)
         {
              // Look for year separately
