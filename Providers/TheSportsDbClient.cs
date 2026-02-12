@@ -31,7 +31,7 @@ public class TheSportsDbClient
 
     public async Task<RootObject?> SearchLeagueAsync(string name, CancellationToken cancellationToken)
     {
-        var url = $"{BaseUrl}/search_all_leagues.php?s={Uri.EscapeDataString(name)}";
+        var url = $"{BaseUrl}/search_all_leagues.php?l={Uri.EscapeDataString(name)}";
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
 
@@ -69,8 +69,12 @@ public class TheSportsDbClient
     {
         var d = date.ToString("yyyy-MM-dd");
         var url = $"{BaseUrl}/eventsday.php?d={d}";
-        // Parameter 'l' (League ID/Name) is unreliable on this endpoint. 
-        // We will fetch all events for the day and filter by leagueId on the client side.
+        
+        // Pass league ID if available for better filtering with premium keys
+        if (!string.IsNullOrEmpty(leagueId))
+        {
+            url += $"&l={leagueId}";
+        }
         
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }

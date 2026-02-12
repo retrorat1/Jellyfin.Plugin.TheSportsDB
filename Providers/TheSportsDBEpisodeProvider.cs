@@ -120,14 +120,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Strategy 2: Use Series ID + Season + Date/Name to find event
         var leagueId = info.SeriesProviderIds.GetValueOrDefault("TheSportsDB");
         
-        // If we don't have league ID, we can't do exact season lookup easily.
-        // We'll rely on info.SeriesName and info.Name
-        
-        if (!string.IsNullOrEmpty(leagueId))
-        {
-            // Resolve Season if needed
-        }
-        else if (!string.IsNullOrEmpty(seriesName))
+        // Try to resolve League ID if we don't have it yet
+        if (string.IsNullOrEmpty(leagueId) && !string.IsNullOrEmpty(seriesName))
         {
             // Fallback: Try to resolve League ID dynamically if missing from Series context
             // 'SeriesName' is not available on EpisodeInfo in some contexts, so we derive it from the path.
@@ -190,8 +184,28 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
             }
         }
 
-        // Let's try Search by Name first as it is versatile
+        // Determine the search name - use filename from path if info.Name is too generic
         var searchName = info.Name;
+        
+        // If info.Name is the same as seriesName or very short, extract actual filename from path
+        if (!string.IsNullOrEmpty(info.Path) && 
+            (!string.IsNullOrEmpty(seriesName) && 
+             string.Equals(info.Name, seriesName, StringComparison.OrdinalIgnoreCase)))
+        {
+            try
+            {
+                var filename = System.IO.Path.GetFileNameWithoutExtension(info.Path);
+                if (!string.IsNullOrEmpty(filename))
+                {
+                    _logger.LogInformation("TheSportsDB: info.Name '{Name}' matches series name. Using filename from path: '{Filename}'", info.Name, filename);
+                    searchName = filename;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "TheSportsDB: Failed to extract filename from path {Path}", info.Path);
+            }
+        }
         
         // If file name is "NHL 2026-01-21 Dallas Stars vs Boston Bruins"
         // TSDB Event might be "Dallas Stars vs Boston Bruins"
@@ -200,12 +214,12 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         // Regex to remove "NHL YYYY-MM-DD " prefix?
         // Match: (League)? (YYYY-MM-DD)? (Home vs Away)
         
-        var matchDate = MatchDate(info.Name);
+        var matchDate = MatchDate(searchName);
         var seriesNameToStrip = seriesName;
-        var cleanName = CleanName(info.Name, seriesNameToStrip);
+        var cleanName = CleanName(searchName, seriesNameToStrip);
         var expandedName = await ExpandAbbreviationsAsync(cleanName, leagueId, cancellationToken).ConfigureAwait(false);
 
-        _logger.LogDebug("TheSportsDB: Cleaned name: {CleanName}, Expanded: {ExpandedName}, Date: {Date}", cleanName, expandedName, matchDate);
+        _logger.LogInformation("TheSportsDB: Search name: '{SearchName}', Cleaned: '{CleanName}', Expanded: '{ExpandedName}', Date: {Date}", searchName, cleanName, expandedName, matchDate);
 
         var searchResults = await _client.SearchEventsAsync(expandedName, cancellationToken).ConfigureAwait(false);
         if (searchResults?.events != null)
@@ -365,8 +379,8 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
              if (DateTime.TryParse($"{m.Groups[1].Value}-{m.Groups[2].Value}-{m.Groups[3].Value}", out d)) return d;
         }
 
-        // Try DD MM (e.g. 08 02) - Assume current year or look for year
-        m = Regex.Match(input, @"(\d{2}) (\d{2})");
+        // Try DD MM (e.g. 08 02) - Handle ambiguity by trying both interpretations
+        m = Regex.Match(input, @"\b(\d{2}) (\d{2})(?!\d)");
         if (m.Success)
         {
              // Look for year separately
@@ -374,11 +388,56 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
              int year = DateTime.Now.Year;
              if (yMatch.Success && int.TryParse(yMatch.Groups[1].Value, out var y)) year = y;
              
-             // Try assuming format is DD MM YYYY
-             if (DateTime.TryParseExact($"{m.Groups[1].Value}-{m.Groups[2].Value}-{year}", "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d)) return d;
+             int val1 = int.Parse(m.Groups[1].Value);
+             int val2 = int.Parse(m.Groups[2].Value);
              
-             // Try MM DD YYYY
-             if (DateTime.TryParseExact($"{m.Groups[2].Value}-{m.Groups[1].Value}-{year}", "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d)) return d;
+             DateTime? ddMmResult = null;
+             DateTime? mmDdResult = null;
+             
+             // Try DD-MM-YYYY interpretation
+             if (val1 >= 1 && val1 <= 31 && val2 >= 1 && val2 <= 12)
+             {
+                 if (DateTime.TryParseExact($"{m.Groups[1].Value}-{m.Groups[2].Value}-{year}", "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d))
+                 {
+                     ddMmResult = d;
+                 }
+             }
+             
+             // Try MM-DD-YYYY interpretation
+             if (val2 >= 1 && val2 <= 31 && val1 >= 1 && val1 <= 12)
+             {
+                 if (DateTime.TryParseExact($"{m.Groups[2].Value}-{m.Groups[1].Value}-{year}", "dd-MM-yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out d))
+                 {
+                     mmDdResult = d;
+                 }
+             }
+             
+             // Return the most reasonable date:
+             // 1. Prefer dates not too far in the future (within 7 days)
+             // 2. If both valid, prefer the one closer to today
+             var now = DateTime.Now;
+             var futureLimit = now.AddDays(7);
+             
+             if (ddMmResult.HasValue && mmDdResult.HasValue)
+             {
+                 // Both are valid, choose the one closer to today
+                 var ddDiff = Math.Abs((ddMmResult.Value - now).TotalDays);
+                 var mmDiff = Math.Abs((mmDdResult.Value - now).TotalDays);
+                 return ddDiff <= mmDiff ? ddMmResult.Value : mmDdResult.Value;
+             }
+             
+             if (ddMmResult.HasValue && ddMmResult.Value <= futureLimit)
+             {
+                 return ddMmResult.Value;
+             }
+             
+             if (mmDdResult.HasValue && mmDdResult.Value <= futureLimit)
+             {
+                 return mmDdResult.Value;
+             }
+             
+             // If we have any valid result, return it even if it's in the future
+             return ddMmResult ?? mmDdResult;
         }
 
         return null;
@@ -578,17 +637,22 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         {
             s = s.Replace(seriesName, "", StringComparison.OrdinalIgnoreCase);
         }
-
-        // Hardcoded fallbacks only if seriesName wasn't sufficient or provided
-        s = s.Replace("NHL", "", StringComparison.OrdinalIgnoreCase);
-        s = s.Replace("EPL", "", StringComparison.OrdinalIgnoreCase);
         
-        // Remove Scene Tags
-        s = Regex.Replace(s, @"\b(720p|1080p|2160p|480p|x264|x265|HEVC|AAC|Fubo|WEBDL|WEB-DL|HDTV|h264|h265)\b", "", RegexOptions.IgnoreCase);
+        // Remove Scene Tags and video quality indicators
+        s = Regex.Replace(s, @"\b(720p|1080p|2160p|480p|4K|x264|x265|HEVC|AAC|Fubo|WEBDL|WEB-DL|HDTV|h264|h265|BluRay|BDRip|WEBRip)\b", "", RegexOptions.IgnoreCase);
         
-        // Remove trailing garbage (e.g. " 08 02 ", " - ")
-        // Wait, "08 02" is date. If MatchDate didn't remove it, we should if it looks like date garbage?
-        // But let's leave numbers if they might be scores or part of names for now, unless 4-digit year.
+        // Remove frame rate indicators (e.g., 60fps, 30fps)
+        s = Regex.Replace(s, @"\d+fps", "", RegexOptions.IgnoreCase);
+        
+        // Remove language codes (e.g., EN, FR, DE as standalone words)
+        s = Regex.Replace(s, @"\b[A-Z]{2}\b", "");
+        
+        // Remove codec/source strings
+        s = Regex.Replace(s, @"\b(PROPER|REPACK|iNTERNAL|DUBBED|SUBBED|LIMITED|EXTENDED)\b", "", RegexOptions.IgnoreCase);
+        
+        // Remove remaining loose DD MM digit pairs (date remnants) after main date extraction
+        // Only remove if they appear as isolated pairs
+        s = Regex.Replace(s, @"\b\d{2}\s+\d{2}\b", "");
         
         return s.Trim().Trim('-', ' ', '.');
     }
