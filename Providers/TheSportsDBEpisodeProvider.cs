@@ -69,6 +69,10 @@ public class TheSportsDBEpisodeProvider : IRemoteMetadataProvider<Episode, Episo
         }
         return list;
     }
+	public Task<ImageResponse> GetImageResponse(string url, CancellationToken cancellationToken)
+{
+    return BaseProviderUtils.DefaultGetImageResponse(url, cancellationToken);
+}
     public async Task<MetadataResult<Episode>> GetMetadata(EpisodeInfo info, CancellationToken cancellationToken)
     {
         _logger.LogInformation("TheSportsDB: Getting episode metadata for \"{Name}\"", info.Name);

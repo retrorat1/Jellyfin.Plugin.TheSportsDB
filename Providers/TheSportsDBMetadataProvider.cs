@@ -101,7 +101,10 @@ public class TheSportsDBMetadataProvider : IRemoteMetadataProvider<Series, Serie
 
         return list;
     }
-
+	public Task<ImageResponse> GetImageResponse(string url, CancellationToken cancellationToken)
+{
+    return BaseProviderUtils.DefaultGetImageResponse(url, cancellationToken);
+}
     public async Task<MetadataResult<Series>> GetMetadata(SeriesInfo info, CancellationToken cancellationToken)
     {
         _logger.LogInformation("TheSportsDB: Getting metadata for {Name}", info.Name);
