@@ -81,7 +81,7 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
         {
             _logger.LogInformation("TheSportsDB: Getting episode metadata for \"{Name}\"", info.Name);
 
-            string? seriesName = GetSeriesNameFromPath(info.Path) ?? info.SeriesName;
+            string? seriesName = GetSeriesNameFromPath(info.Path);
             var config = Plugin.Instance?.Configuration;
             string? leagueId =
                 config?.LeagueMappings?.FirstOrDefault(x => x.Name.Equals(seriesName, StringComparison.OrdinalIgnoreCase))?.LeagueId
@@ -101,7 +101,7 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                     PremiereDate = DateTime.TryParse(eventMatch.dateEvent, out var d) ? d : (DateTime?)null,
                     ProductionYear = DateTime.TryParse(eventMatch.dateEvent, out var dy) ? dy.Year : (int?)null,
                 };
-                result.ProviderIds["TheSportsDB"] = eventMatch.idEvent;
+                result.Item.ProviderIds["TheSportsDB"] = eventMatch.idEvent;
             }
             return result;
         }
@@ -179,9 +179,15 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             foreach (int offset in dateOffsets)
             {
                 DateTime? dateParam = fileDate.HasValue ? fileDate.Value.AddDays(offset) : (DateTime?)null;
-                var eventsResult = leagueId != null
-                    ? await _client.GetEventsByLeagueAndDateAsync(leagueId, dateParam, cancellationToken).ConfigureAwait(false)
-                    : await _client.SearchEventsAsync(name, cancellationToken).ConfigureAwait(false);
+                RootObject? eventsResult = null;
+                if (leagueId != null && dateParam.HasValue)
+                {
+                    eventsResult = await _client.GetEventsByDayAsync(dateParam.Value, leagueId, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    eventsResult = await _client.SearchEventsAsync(name, cancellationToken).ConfigureAwait(false);
+                }
 
                 var evList = eventsResult?.events ?? eventsResult?.@event;
                 if (evList != null)

@@ -144,6 +144,7 @@ public class League
     public string? strFacebook { get; set; }
     public string? strTwitter { get; set; }
     public string? strYoutube { get; set; }
+    public string? dateFirstEvent { get; set; }
 }
 
 public class Event

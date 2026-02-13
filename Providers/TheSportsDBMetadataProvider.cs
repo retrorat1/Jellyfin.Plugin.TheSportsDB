@@ -138,25 +138,25 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                     };
                     result.HasMetadata = true;
 
-                    result.ProviderIds["TheSportsDB"] = league.idLeague;
+                    result.Item.ProviderIds["TheSportsDB"] = league.idLeague;
                     if (!string.IsNullOrEmpty(league.strPoster))
-                        result.Item.SetImage(ImageType.Primary, league.strPoster);
+                        result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = league.strPoster }, 0);
                     else if (!string.IsNullOrEmpty(league.strBadge))
-                        result.Item.SetImage(ImageType.Primary, league.strBadge);
+                        result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = league.strBadge }, 0);
                     else if (!string.IsNullOrEmpty(league.strLogo))
-                        result.Item.SetImage(ImageType.Primary, league.strLogo);
+                        result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = league.strLogo }, 0);
 
                     if (!string.IsNullOrEmpty(league.strFanart1))
-                        result.Item.SetImage(ImageType.Backdrop, league.strFanart1);
+                        result.Item.SetImage(new ItemImageInfo { Type = ImageType.Backdrop, Path = league.strFanart1 }, 0);
                     if (!string.IsNullOrEmpty(league.strFanart2))
-                        result.Item.AddImage(ImageType.Backdrop, league.strFanart2);
+                        result.Item.AddImage(new ItemImageInfo { Type = ImageType.Backdrop, Path = league.strFanart2 });
                     if (!string.IsNullOrEmpty(league.strFanart3))
-                        result.Item.AddImage(ImageType.Backdrop, league.strFanart3);
+                        result.Item.AddImage(new ItemImageInfo { Type = ImageType.Backdrop, Path = league.strFanart3 });
                     if (!string.IsNullOrEmpty(league.strFanart4))
-                        result.Item.AddImage(ImageType.Backdrop, league.strFanart4);
+                        result.Item.AddImage(new ItemImageInfo { Type = ImageType.Backdrop, Path = league.strFanart4 });
 
                     if (!string.IsNullOrEmpty(league.strBanner))
-                        result.Item.SetImage(ImageType.Banner, league.strBanner);
+                        result.Item.SetImage(new ItemImageInfo { Type = ImageType.Banner, Path = league.strBanner }, 0);
                 }
             }
             return result;
