@@ -36,39 +36,58 @@ public class SportsResolverDb
 
     /// <summary>
     /// Finds the full team name given a short name/abbreviation and league ID.
-    /// Checks multiple columns: short_name, stripped_name, alternative_names.
+    /// Pass 1: strict league match (for abbreviations like NJD → New Jersey Devils).
+    /// Pass 2: cross-league fallback (e.g. India Cricket stored under ODI but queried for T20 WC).
+    /// Pass 3: return null — caller uses the raw string as-is.
     /// </summary>
     public string? GetTeamFullName(string lookupName, string leagueId)
     {
+        if (string.IsNullOrWhiteSpace(lookupName)) return null;
         try
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath};");
             conn.Open();
-            
-            // Search aliases or short names
-            var query = @"
-                SELECT name 
-                FROM teams 
-                WHERE league_id = @lid 
-                  AND (
-                    short_name = @lookup 
-                    OR stripped_name = @lookup
-                    OR alternative_names LIKE @likeLookup
-                  )
-                LIMIT 1";
 
-            using var cmd = new SqliteCommand(query, conn);
-            cmd.Parameters.AddWithValue("@lid", leagueId);
-            cmd.Parameters.AddWithValue("@lookup", lookupName); 
-            cmd.Parameters.AddWithValue("@likeLookup", $"%{lookupName}%");
-            
-            using var reader = cmd.ExecuteReader();
-            return reader.Read() ? reader.GetString(0) : null;
+            // Pass 1: strict league match — for abbreviations (NJD, BUF, MTL etc.)
+            using (var cmd = new SqliteCommand(@"
+                SELECT name FROM teams
+                WHERE league_id = @lid
+                  AND (
+                    name             = @lookup
+                    OR short_name    = @lookup
+                    OR stripped_name = @lookup
+                    OR alternative_names LIKE @like
+                  )
+                LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@lid",    leagueId);
+                cmd.Parameters.AddWithValue("@lookup", lookupName);
+                cmd.Parameters.AddWithValue("@like",   $"%{lookupName}%");
+                using var r = cmd.ExecuteReader();
+                if (r.Read()) return r.GetString(0);
+            }
+
+            // Pass 2: cross-league fallback
+            // e.g. "India Cricket" stored under ODI (4801) but queried for T20 WC (5103)
+            using (var cmd2 = new SqliteCommand(@"
+                SELECT name FROM teams
+                WHERE (
+                    name             = @lookup
+                    OR short_name    = @lookup
+                    OR stripped_name = @lookup
+                    OR alternative_names LIKE @like
+                )
+                LIMIT 1", conn))
+            {
+                cmd2.Parameters.AddWithValue("@lookup", lookupName);
+                cmd2.Parameters.AddWithValue("@like",   $"%{lookupName}%");
+                using var r2 = cmd2.ExecuteReader();
+                if (r2.Read()) return r2.GetString(0);
+            }
+
+            return null; // caller uses raw string as-is
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
     
     /// <summary>

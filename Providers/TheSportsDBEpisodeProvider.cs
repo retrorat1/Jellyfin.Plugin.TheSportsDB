@@ -25,7 +25,15 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
 
         private static readonly string[] LeagueNameStrips = new[]
         {
-            "English Premier League", "NHL", "EPL", "NFL", "NBA", "MLB", "UFC", "La Liga", "Spanish La Liga"
+            // Longest/most-specific phrases MUST come first to avoid partial strips
+            "English Premier League",
+            "Spanish La Liga",           // before "La Liga" and "Spanish"
+            "ICC Mens T20 World Cup",    // before "ICC"
+            "ICC Womens T20 World Cup",
+            "ICC Cricket World Cup",
+            "La Liga",
+            "Spanish",
+            "NHL", "EPL", "NFL", "NBA", "MLB", "UFC", "ICC",
         };
         private static readonly string[] SuffixStrips = new[]
         {
@@ -81,6 +89,12 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             var path = info.Path;
             string? seriesName = null;
 
+            // Capture the raw filename (without extension) early, before any cleaning,
+            // for use in strFilename matching against the TheSportsDB API field.
+            string rawFilename = !string.IsNullOrEmpty(info.Path)
+                ? System.IO.Path.GetFileNameWithoutExtension(info.Path)
+                : rawName;
+
             if (!string.IsNullOrEmpty(path))
             {
                 seriesName = GetSeriesNameFromPath(path);
@@ -122,7 +136,6 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 leagueSlug = _sportsResolverDb.GetLeagueSlug(leagueId);
             }
 
-            string? sportName = null;
             _logger.LogInformation("TheSportsDB: Resolved League Slug: \"{Slug}\"", leagueSlug);
 
             if (!string.IsNullOrEmpty(info.Path))
@@ -152,11 +165,8 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
 
                 _logger.LogInformation($"Team parsing from filename: {teamAAbbr} ({teamAname}), {teamBAbbr} ({teamBname}) in league {leagueId}");
 
-                if (string.IsNullOrEmpty(teamAname) || string.IsNullOrEmpty(teamBname))
-                {
-                    _logger.LogWarning($"Strict mapping failed for one or both teams ({teamAAbbr}/{teamBAbbr}) under league {leagueId}. Skipping metadata assignment.");
-                    return result; // abort: do NOT fetch or assign metadata unless both teams are mapped!
-                }
+                if (string.IsNullOrEmpty(teamAname)) teamAname = teamAAbbr;
+                if (string.IsNullOrEmpty(teamBname)) teamBname = teamBAbbr;
                 resolvedCleanName = $"{teamAname} vs {teamBname}";
             }
             else if (cleanName.Contains("-") && leagueId != null)
@@ -174,23 +184,24 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
 
                         _logger.LogInformation($"Team parsing from hyphen split: {teamAAbbr} ({teamAname}), {teamBAbbr} ({teamBname}) in league {leagueId}");
 
-                        if (string.IsNullOrEmpty(teamAname) || string.IsNullOrEmpty(teamBname))
-                        {
-                            _logger.LogWarning($"Strict mapping failed for one or both teams ({teamAAbbr}/{teamBAbbr}) under league {leagueId}. Skipping metadata assignment.");
-                            return result;
-                        }
+                        if (string.IsNullOrEmpty(teamAname)) teamAname = teamAAbbr;
+                        if (string.IsNullOrEmpty(teamBname)) teamBname = teamBAbbr;
                         resolvedCleanName = $"{teamAname} vs {teamBname}";
                     }
                 }
             }
 
             // STRONGLY pass resolved team names
-            var eventMatch = await FindStrictTeamMatchAsync(teamAname, teamBname, resolvedCleanName, rawName, leagueId, sportName, leagueSlug, date, cancellationToken);
+            var eventMatch = await FindEventByDayAsync(teamAname, teamBname, rawFilename, leagueId, leagueSlug, date, cancellationToken);
 
             if (eventMatch != null)
             {
+                // Fetch full, clean metadata via lookupevent for guaranteed single-event response
+                var fullEventResult = await _client.GetEventAsync(eventMatch.idEvent, cancellationToken).ConfigureAwait(false);
+                var ev = fullEventResult?.events?.FirstOrDefault() ?? fullEventResult?.@event?.FirstOrDefault() ?? eventMatch;
+
                 result.HasMetadata = true;
-                var displayTitle = eventMatch.strEvent;
+                var displayTitle = ev.strEvent;
 
                 // Suffixes (Prelims, etc.)
                 var suffixes = new[] { "Early Prelims", "Prelims", "Main Card", "Weigh-in", "Post Show", "Pre Show", "Kickoff", "Press Conference" };
@@ -209,23 +220,23 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 result.Item = new Episode
                 {
                     Name = displayTitle,
-                    Overview = BuildOverview(eventMatch.strDescriptionEN, eventMatch.strEvent),
-                    PremiereDate = DateTime.TryParse(eventMatch.dateEvent, out var d) ? d : null,
-                    ProductionYear = DateTime.TryParse(eventMatch.dateEvent, out var d2) ? d2.Year : null,
+                    Overview = BuildOverview(ev.strDescriptionEN, ev.strEvent),
+                    PremiereDate = DateTime.TryParse(ev.dateEvent, out var d) ? d : null,
+                    ProductionYear = DateTime.TryParse(ev.dateEvent, out var d2) ? d2.Year : null,
                 };
-                result.Item.ProviderIds["TheSportsDB"] = eventMatch.idEvent;
+                result.Item.ProviderIds["TheSportsDB"] = ev.idEvent;
 
-                if (!string.IsNullOrEmpty(eventMatch.strThumb))
+                if (!string.IsNullOrEmpty(ev.strThumb))
                 {
-                    result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = eventMatch.strThumb }, 0);
+                    result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = ev.strThumb }, 0);
                 }
-                else if (!string.IsNullOrEmpty(eventMatch.strPoster))
+                else if (!string.IsNullOrEmpty(ev.strPoster))
                 {
-                    result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = eventMatch.strPoster }, 0);
+                    result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = ev.strPoster }, 0);
                 }
-                if (!string.IsNullOrEmpty(eventMatch.strFanart))
+                if (!string.IsNullOrEmpty(ev.strFanart))
                 {
-                    result.Item.SetImage(new ItemImageInfo { Type = ImageType.Backdrop, Path = eventMatch.strFanart }, 0);
+                    result.Item.SetImage(new ItemImageInfo { Type = ImageType.Backdrop, Path = ev.strFanart }, 0);
                 }
             }
             return result;
@@ -324,57 +335,69 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             return name;
         }
 
-        // STRICT TEAM MATCH: Only match events where both home/away teams (API) match your DB-mapped teams!
-        private async Task<Event?> FindStrictTeamMatchAsync(string teamAname, string teamBname, string cleanName, string rawName, string? leagueId, string? sportName, string? leagueName, DateTime? fileDate, CancellationToken cancellationToken)
+        // Match Priority 1: strFilename exact match (primary — before any team resolution)
+        // Match Priority 2: strHomeTeam/strAwayTeam match + date match (only when teams are known)
+        private async Task<Event?> FindEventByDayAsync(
+            string? teamAname, string? teamBname,
+            string rawFilename,
+            string? leagueId, string? leagueSlug,
+            DateTime? fileDate,
+            CancellationToken cancellationToken)
         {
-            if (leagueId != null && fileDate.HasValue && !string.IsNullOrEmpty(teamAname) && !string.IsNullOrEmpty(teamBname))
+            if (leagueId == null || !fileDate.HasValue)
+                return null;
+
+            bool teamsKnown = !string.IsNullOrEmpty(teamAname) && !string.IsNullOrEmpty(teamBname);
+
+            int[] dateOffsets = new[] { 0, 1, -1, 2, -2 };
+            foreach (int offset in dateOffsets)
             {
-                int[] dateOffsets = new[] { 0, 1, -1, 2, -2 };
-                foreach (int offset in dateOffsets)
+                DateTime dateParam = fileDate.Value.AddDays(offset);
+                _logger.LogInformation("TheSportsDB: Searching events by day: LeagueId={LeagueId}, Date={Date}", leagueId, dateParam.ToString("yyyy-MM-dd"));
+
+                var eventsResult = await _client.GetEventsByDayAsync(dateParam, null, leagueId, leagueSlug, cancellationToken).ConfigureAwait(false);
+                var evList = eventsResult?.events ?? eventsResult?.@event;
+                if (evList == null || evList.Count == 0) continue;
+
+                // Priority 1: strFilename exact match against raw unstripped filename
+                foreach (var ev in evList)
                 {
-                    DateTime dateParam = fileDate.Value.AddDays(offset);
-                    _logger.LogInformation("TheSportsDB: Searching events by day for strict match: LeagueId={LeagueId}, Date={Date}", leagueId, dateParam.ToString("yyyy-MM-dd"));
-
-                    var eventsResult = await _client.GetEventsByDayAsync(dateParam, sportName, leagueId, leagueName, cancellationToken).ConfigureAwait(false);
-                    var evList = eventsResult?.events ?? eventsResult?.@event;
-                    if (evList != null && evList.Count > 0)
+                    if (!string.IsNullOrEmpty(ev.strFilename) && !string.IsNullOrEmpty(rawFilename) &&
+                        string.Equals(ev.strFilename.Trim(), rawFilename.Trim(), StringComparison.OrdinalIgnoreCase))
                     {
-                        foreach (var ev in evList)
-                        {
-                            // Only match strict home/away teams and date!
-                            bool homeawayMatch =
-                                (!string.IsNullOrEmpty(ev.strHomeTeam) && !string.IsNullOrEmpty(ev.strAwayTeam)) &&
-                                (
-                                    (string.Equals(ev.strHomeTeam, teamAname, StringComparison.OrdinalIgnoreCase) &&
-                                     string.Equals(ev.strAwayTeam, teamBname, StringComparison.OrdinalIgnoreCase)) ||
-                                    (string.Equals(ev.strHomeTeam, teamBname, StringComparison.OrdinalIgnoreCase) &&
-                                     string.Equals(ev.strAwayTeam, teamAname, StringComparison.OrdinalIgnoreCase))
-                                );
-                            bool dateMatch =
-                                fileDate.HasValue && DateTime.TryParse(ev.dateEvent, out var evDate) &&
-                                evDate.Date == dateParam.Date;
+                        _logger.LogInformation("TheSportsDB: Match via strFilename: \"{StrFilename}\"", ev.strFilename);
+                        return ev;
+                    }
+                }
 
-                            if (homeawayMatch && dateMatch)
-                            {
-                                _logger.LogInformation("Strict event match: {EventName}, HomeTeam={Home}, AwayTeam={Away}, Date={Date}",
-                                    ev.strEvent, ev.strHomeTeam, ev.strAwayTeam, ev.dateEvent);
-                                return ev;
-                            }
-                            // fallback: exact filename match via strFilename (rare)
-                            if (!string.IsNullOrEmpty(ev.strFilename) && !string.IsNullOrEmpty(rawName))
-                            {
-                                if (string.Equals(ev.strFilename.Trim(), rawName.Trim(), StringComparison.OrdinalIgnoreCase))
-                                {
-                                    _logger.LogInformation("TheSportsDB: Exact match found via strFilename: \"{StrFilename}\"", ev.strFilename);
-                                    return ev;
-                                }
-                            }
+                // Priority 2: strHomeTeam/strAwayTeam match + date match (only when teams are known)
+                if (teamsKnown)
+                {
+                    foreach (var ev in evList)
+                    {
+                        bool homeawayMatch =
+                            (!string.IsNullOrEmpty(ev.strHomeTeam) && !string.IsNullOrEmpty(ev.strAwayTeam)) &&
+                            (
+                                (string.Equals(ev.strHomeTeam, teamAname, StringComparison.OrdinalIgnoreCase) &&
+                                 string.Equals(ev.strAwayTeam, teamBname, StringComparison.OrdinalIgnoreCase)) ||
+                                (string.Equals(ev.strHomeTeam, teamBname, StringComparison.OrdinalIgnoreCase) &&
+                                 string.Equals(ev.strAwayTeam, teamAname, StringComparison.OrdinalIgnoreCase))
+                            );
+                        bool dateMatch =
+                            DateTime.TryParse(ev.dateEvent, out var evDate) &&
+                            evDate.Date == dateParam.Date;
+
+                        if (homeawayMatch && dateMatch)
+                        {
+                            _logger.LogInformation("TheSportsDB: Match via team names: {EventName}, Home={Home}, Away={Away}, Date={Date}",
+                                ev.strEvent, ev.strHomeTeam, ev.strAwayTeam, ev.dateEvent);
+                            return ev;
                         }
                     }
                 }
             }
-            // If strict match fails, optionally try looser match or fallback
-            _logger.LogWarning("TheSportsDB: Strict team+date match failed for {teamAname} vs {teamBname} on {fileDate}", teamAname, teamBname, fileDate?.ToString("yyyy-MM-dd"));
+
+            _logger.LogWarning("TheSportsDB: No event match found for {TeamA} vs {TeamB} on {Date}", teamAname, teamBname, fileDate?.ToString("yyyy-MM-dd"));
             return null;
         }
 
