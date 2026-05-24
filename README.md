@@ -254,7 +254,7 @@ Get started with a **free API key** for testing and personal use. Register at [T
 
 ### Premium API (Recommended!)
 
-Please consider a [Patreon subscription](https://www.thesportsdb.com/patreon.php) if you use this plugin regularly:
+Please consider a [TheSportsDB Premium Key](https://www.thesportsdb.com/pricing) if you use this plugin regularly:
 - ✅ Higher rate limits
 - ✅ Extra endpoints and more data
 - ✅ Live scores and advanced info
