@@ -1,357 +1,365 @@
 [
-  {
-    "guid": "5fce2032-15f1-4171-4141-86105f201010",
-    "name": "TheSportsDB",
-    "description": "Metadata provider for TheSportsDB",
-    "overview": "Fetch sports league metadata from TheSportsDB.com",
-    "owner": "Rob",
-    "category": "Metadata",
-    "imageUrl": "https://raw.githubusercontent.com/retrorat1/Jellyfin.Plugin.TheSportsDB/main/thumb.png",
-    "versions": [
-      {
-        "version": "2.0.8.0",
-        "changelog": "Fix eventsday league filter and packaging/manifest automation",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.8.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "54618d87da10c336d118416e048cf7ab",
-        "timestamp": "2026-05-07T08:55:43Z"
-      },
-      {
-        "version": "2.0.7.1",
-        "changelog": "Test auto-manifest update",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.7.1/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "c0afe42f3cb7edb72487437b7ae4ce39",
-        "timestamp": "2026-05-07T08:28:40Z"
-      },
-      {
-        "version": "2.0.7.0",
-        "changelog": "db update fix",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.7.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "26b447133e97f7296af59475dbe3d971",
-        "timestamp": "2026-05-07T09:14:00Z"
-      },
-      {
-        "version": "2.0.6.0",
-        "changelog": "db update fix",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.6.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "3d36a250b063b91f76acb7dc62fead30",
-        "timestamp": "2026-04-05T07:28:00Z"
-      },
-      {
-        "version": "2.0.5.0",
-        "changelog": "db update fix",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.5.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "bf109ea3db38e6ab2d838dc644a62c8e",
-        "timestamp": "2026-03-17T13:11:00Z"
-      },
-      {
-        "version": "2.0.4.0",
-        "changelog": "NoiseTags,CleanFilename and added @ separator detection",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.4.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "a2d5b9c318ab444b9c5ae01238689b6f",
-        "timestamp": "2026-03-17T12:02:00Z"
-      },
-      {
-        "version": "2.0.3.0",
-        "changelog": "Season folder stripping, ParentIndexNumber from strSeason, NFO file writing",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.3.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "c2373a61e2af224db1524070e78943b4",
-        "timestamp": "2026-03-17T11:02:00Z"
-      },
-      {
-        "version": "2.0.2.0",
-        "changelog": "Fix: P1 match now handles filenames without league prefix (e.g. '2026-03-08 Australian Grand Prix') by adding strFilename suffix match (P1b), series+raw match (P1c), and strEvent contains-match fallback (P5). Add Formula 1 and Formula1 to LeagueNameStrips.",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.2.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "97ba9d736ad5f7942253a3906546bfa6",
-        "timestamp": "2026-03-17T00:00:00Z"
-      },
-      {
-        "version": "2.0.1.0",
-        "changelog": "Fix noisy tokens in filenames for v2.0.1.0 v2.0.1.0: Fix CleanFilename noise stripping, fuzzy team matching, date offset handling, and DB auto-update timestamp",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.1.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "5968c5087eb6f23bac66da16ce9f3c78",
-        "timestamp": "2026-03-02T14:17:00Z"
-      },
-      {
-        "version": "2.0.0.0",
-        "changelog": "Add self-updating DB mechanism: sports_resolver.db auto-downloads from GitHub Release tagged db-latest on startup",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.0.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "92f63b2508d5dc79da9f687fadc90d93",
-        "timestamp": "2026-03-02T12:00:00Z"
-      },
-      {
-        "version": "1.0.39.0",
-        "changelog": "Bump v1.0.39.0",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.39.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "B1ECE748629AD5EF46A39BE8E967D2C6",
-        "timestamp": "2026-03-01T11:39:00Z"
-      },
-      {
-        "version": "1.0.37.0",
-        "changelog": "Bump v1.0.37.0 - Fixed Short names and local db search",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.37.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "95AFC6C15FC72056A9DBAC3950569645",
-        "timestamp": "2026-03-01T11:02:00Z"
-      },
-      {
-        "version": "1.0.36.0",
-        "changelog": "Bump v1.0.36.0 - Fixed Add Mapping functionality and startup crash (restart loop).",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.36.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "6957345dbb35aad4ff73d957657070a9",
-        "timestamp": "2026-02-18T11:40:00Z"
-      },
-      {
-        "version": "1.0.35.0",
-        "changelog": "Fixed Add Mapping functionality and startup crash (restart loop).",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.35/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "f4e9a50c743d00e826f6ffda40c0de49",
-        "timestamp": "2026-02-18T11:00:00Z"
-      },
-      {
-        "version": "1.0.34.0",
-        "changelog": "Bump v1.0.34.0 - Fixed NHL date/team matching (loose match, date offset +/- 2 days), fixed League ID resolution for flat folders, added MD5 checksum generation to build script, preserved event suffix titles.",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.34.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "869cc9a00f08ad7a93d1e7f28e736f91",
-        "timestamp": "2026-02-17T19:30:00Z"
-      },
-      {
-        "version": "1.0.33.0",
-        "changelog": "Bump v1.0.33.0 - Migrated to Microsoft.Data.Sqlite for better Linux compatibility",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.33.0/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "E45A141AD20D353C5FD1EF4FC52959066D25B450C0FB64D09326E98FCD3E7A7A",
-        "timestamp": "2026-02-16T12:00:00Z"
-      },
-      {
-        "version": "1.0.28.0",
-        "changelog": "Bump v1.0.28",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.28/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "22093875e9ad70a8bb6b1c99ba98c5a0",
-        "timestamp": "2026-02-13T19:02:00Z"
-      },
-      {
-        "version": "1.0.27.0",
-        "changelog": "Fix: SearchEventsAsync returns no results due to JSON property name mismatch (\"event\" vs \"events\")",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.27/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "e4673014488eb4f5e3c08f306528aa76",
-        "timestamp": "2026-02-13T09:40:00Z"
-      },
-      {
-        "version": "1.0.26.0",
-        "changelog": "Fixed EPL/Soccer metadata: extracts filename from path, improved CleanName (strips fps/language codes/scene tags), fixed DD/MM date ambiguity, corrected API parameters for league search and day events, removed unused Newtonsoft.Json dependency, expanded README with naming guide.",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.26/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "22093875e9ad70a8bb6b1c99ba98c5a0",
-        "timestamp": "2026-02-12T12:00:00Z"
-      },
-      {
-        "version": "1.0.25.0",
-        "changelog": "Fixed configuration page saving issue (double submission) and improved search efficiency/accuracy for team names and dates.",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.25/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "00000000000000000000000000000000",
-        "timestamp": "2026-02-12T10:00:00Z"
-      },
-      {
-        "version": "1.0.24.0",
-        "changelog": "Fixed configuration page saving issue by improving event binding and button handling.",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.24/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "72720e64b27509321faa029b2fca0e2b",
-        "timestamp": "2026-02-11T13:54:00Z"
-      },
-      {
-        "version": "1.0.23.0",
-        "changelog": "Fixed configuration page saving issue for League Mappings.",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/1.0.23/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "97cdd8cc2fd138b8495305dec8e8ff5a",
-        "timestamp": "2026-02-11T13:26:00Z"
-      },
-      {
-        "version": "1.0.22.0",
-        "changelog": "Added League Mapping configuration to allow custom folder names (e.g. 'SÃƒÂ¼per Lig' -> '4339')",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/1.0.22/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "f2410a2c7f90884833f68a1d32b6f505",
-        "timestamp": "2026-02-11T13:00:00Z"
-      },
-      {
-        "version": "1.0.21.0",
-        "changelog": "Fixed event matching by removing unreliable API parameter and improved abbreviation support with league context",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.21/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "581557E7E5040A26A33CE8184B05E407",
-        "timestamp": "2026-02-10T13:42:00Z"
-      },
-      {
-        "version": "1.0.20.0",
-        "changelog": "Updated local database to sports_resolver.db for better team matching and removed outdated league DB",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.20/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "3FE30F07983B7D7DFFEA66F46BF95C91",
-        "timestamp": "2026-02-08T00:00:00Z"
-      },
-      {
-        "version": "1.0.18.0",
-        "changelog": "Fixed team matching for abbreviated names (e.g. STL vs LAK) and improved logging",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.18/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "CF0C191EC044B89AB61351A322603B6E",
-        "timestamp": "2026-02-01T00:00:00Z"
-      },
-      {
-        "version": "1.0.17.0",
-        "changelog": "Applied timezone (T+/-1) fuzzy match to primary name search to fix missing events",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.17/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "AFAD5788C77D6B7EB52D791F61656A56",
-        "timestamp": "2026-01-26T00:00:00Z"
-      },
-      {
-        "version": "1.0.16.0",
-        "changelog": "Added fuzzy date lookup (T+/-1 day) to handle TimeZone discrepancies (Local vs UTC)",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.16/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "7CDF6A5C3161B7D872EC2B60AE78A5AC",
-        "timestamp": "2026-01-26T00:00:00Z"
-      },
-      {
-        "version": "1.0.15.0",
-        "changelog": "Integrated local sports_leagues.db for robust League ID resolution",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.15/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "1CB0688B2C8A130EE59F2ED05DFF145E",
-        "timestamp": "2026-01-26T00:00:00Z"
-      },
-      {
-        "version": "1.0.14.0",
-        "changelog": "Added internal league ID map (NHL, EPL, UFC etc) to minimize API calls",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.14/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "C7CF7053638BF17EA07CE7AF0616A7AB",
-        "timestamp": "2026-01-26T00:00:00Z"
-      },
-      {
-        "version": "1.0.13.0",
-        "changelog": "Relaxed League ID requirement to allow date-only lookup fallback",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.13/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "FF5067319AB6748A8B1DB3C5E2D609CE",
-        "timestamp": "2026-01-26T00:00:00Z"
-      },
-      {
-        "version": "1.0.12.0",
-        "changelog": "Fix CheckTeamIdMatch to fetch team details and set Season number",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.12/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "DABA429E809DDC7FD21C46994DA5782C",
-        "timestamp": "2026-01-26T00:00:00Z"
-      },
-      {
-        "version": "1.0.11.0",
-        "changelog": "Improved team name matching with short names",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.11/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "C5D57301D70A0E17A1719035490CA713",
-        "timestamp": "2026-01-26T00:00:00Z"
-      },
-      {
-        "version": "1.0.10.0",
-        "changelog": "Added fallback to date-based lookup for episodes",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.10/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "65CA6683974EC77C6EE1F8A19EB29C30",
-        "timestamp": "2026-01-23T00:00:00Z"
-      },
-      {
-        "version": "1.0.9.0",
-        "changelog": "Fix thumbnail downloads for episodes and series",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.9/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "b1fbfd883dfebe1983dbe57ca4b75e31",
-        "timestamp": "2026-01-22T08:15:00Z"
-      },
-      {
-        "version": "1.0.8.0",
-        "changelog": "Add episode/match metadata support",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.8/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "12fd30c89d6732eed663be4b6fa389d0",
-        "timestamp": "2026-01-22T00:00:00Z"
-      },
-      {
-        "version": "1.0.7.0",
-        "changelog": "Add debug logging and fix image download implementation",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.7/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "8a822763c5c64ace0add9dc50f681207",
-        "timestamp": "2026-01-21T00:00:00Z"
-      },
-      {
-        "version": "1.0.6.0",
-        "changelog": "Fix styling and overlay issues in config page",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.6/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "3f20ef5b7d6e9ae1701411e280683e19",
-        "timestamp": "2026-01-21T00:00:00Z"
-      },
-      {
-        "version": "1.0.5.0",
-        "changelog": "Fix configuration page styling and load issues",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.5/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "9b9714d6102bb7ad59e72b7415d5909e",
-        "timestamp": "2026-01-21T00:00:00Z"
-      },
-      {
-        "version": "1.0.4.0",
-        "changelog": "Fix configuration input focus styling",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.4/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "E65B0C7F11B53564FA65BAAAFCF85370",
-        "timestamp": "2026-01-20T00:00:00Z"
-      },
-      {
-        "version": "1.0.3.0",
-        "changelog": "Fix configuration page input focus",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.3/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "EAECC04FBD30B07E3E7D5C3FFD94BC5F",
-        "timestamp": "2026-01-20T00:00:00Z"
-      },
-      {
-        "version": "1.0.2.0",
-        "changelog": "Fix configuration page ID collision",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.2/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "5134307E95B42EFE24A2A50CE39864A6",
-        "timestamp": "2026-01-20T00:00:00Z"
-      },
-      {
-        "version": "1.0.1.0",
-        "changelog": "Added plugin logo",
-        "targetAbi": "10.0.0.0",
-        "sourceUrl": "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.1/Jellyfin.Plugin.TheSportsDB.zip",
-        "checksum": "6D8EE90CFA2B7358C53EA4CDD95B7026",
-        "timestamp": "2026-01-19T00:00:00Z"
-      }
-    ]
-  }
+    {
+        "guid":  "5fce2032-15f1-4171-4141-86105f201010",
+        "name":  "TheSportsDB",
+        "description":  "Metadata provider for TheSportsDB",
+        "overview":  "Fetch sports league metadata from TheSportsDB.com",
+        "owner":  "Rob",
+        "category":  "Metadata",
+        "imageUrl":  "https://raw.githubusercontent.com/retrorat1/Jellyfin.Plugin.TheSportsDB/main/thumb.png",
+        "versions":  [
+                         {
+                             "version":  "2.0.9.0",
+                             "changelog":  "Rebuild sports_resolver.db: fix team aliases, add multi-league team_leagues support",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.9.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "d6f97460d8186f3f98415ca66560b099",
+                             "timestamp":  "2026-06-22T21:16:37Z"
+                         },
+                         {
+                             "version":  "2.0.8.0",
+                             "changelog":  "Fix eventsday league filter and packaging/manifest automation",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.8.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "54618d87da10c336d118416e048cf7ab",
+                             "timestamp":  "2026-05-07T08:55:43Z"
+                         },
+                         {
+                             "version":  "2.0.7.1",
+                             "changelog":  "Test auto-manifest update",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.7.1/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "c0afe42f3cb7edb72487437b7ae4ce39",
+                             "timestamp":  "2026-05-07T08:28:40Z"
+                         },
+                         {
+                             "version":  "2.0.7.0",
+                             "changelog":  "db update fix",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.7.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "26b447133e97f7296af59475dbe3d971",
+                             "timestamp":  "2026-05-07T09:14:00Z"
+                         },
+                         {
+                             "version":  "2.0.6.0",
+                             "changelog":  "db update fix",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.6.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "3d36a250b063b91f76acb7dc62fead30",
+                             "timestamp":  "2026-04-05T07:28:00Z"
+                         },
+                         {
+                             "version":  "2.0.5.0",
+                             "changelog":  "db update fix",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.5.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "bf109ea3db38e6ab2d838dc644a62c8e",
+                             "timestamp":  "2026-03-17T13:11:00Z"
+                         },
+                         {
+                             "version":  "2.0.4.0",
+                             "changelog":  "NoiseTags,CleanFilename and added @ separator detection",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.4.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "a2d5b9c318ab444b9c5ae01238689b6f",
+                             "timestamp":  "2026-03-17T12:02:00Z"
+                         },
+                         {
+                             "version":  "2.0.3.0",
+                             "changelog":  "Season folder stripping, ParentIndexNumber from strSeason, NFO file writing",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.3.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "c2373a61e2af224db1524070e78943b4",
+                             "timestamp":  "2026-03-17T11:02:00Z"
+                         },
+                         {
+                             "version":  "2.0.2.0",
+                             "changelog":  "Fix: P1 match now handles filenames without league prefix (e.g. \u00272026-03-08 Australian Grand Prix\u0027) by adding strFilename suffix match (P1b), series+raw match (P1c), and strEvent contains-match fallback (P5). Add Formula 1 and Formula1 to LeagueNameStrips.",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.2.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "97ba9d736ad5f7942253a3906546bfa6",
+                             "timestamp":  "2026-03-17T00:00:00Z"
+                         },
+                         {
+                             "version":  "2.0.1.0",
+                             "changelog":  "Fix noisy tokens in filenames for v2.0.1.0 v2.0.1.0: Fix CleanFilename noise stripping, fuzzy team matching, date offset handling, and DB auto-update timestamp",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.1.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "5968c5087eb6f23bac66da16ce9f3c78",
+                             "timestamp":  "2026-03-02T14:17:00Z"
+                         },
+                         {
+                             "version":  "2.0.0.0",
+                             "changelog":  "Add self-updating DB mechanism: sports_resolver.db auto-downloads from GitHub Release tagged db-latest on startup",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v2.0.0.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "92f63b2508d5dc79da9f687fadc90d93",
+                             "timestamp":  "2026-03-02T12:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.39.0",
+                             "changelog":  "Bump v1.0.39.0",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.39.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "B1ECE748629AD5EF46A39BE8E967D2C6",
+                             "timestamp":  "2026-03-01T11:39:00Z"
+                         },
+                         {
+                             "version":  "1.0.37.0",
+                             "changelog":  "Bump v1.0.37.0 - Fixed Short names and local db search",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.37.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "95AFC6C15FC72056A9DBAC3950569645",
+                             "timestamp":  "2026-03-01T11:02:00Z"
+                         },
+                         {
+                             "version":  "1.0.36.0",
+                             "changelog":  "Bump v1.0.36.0 - Fixed Add Mapping functionality and startup crash (restart loop).",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.36.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "6957345dbb35aad4ff73d957657070a9",
+                             "timestamp":  "2026-02-18T11:40:00Z"
+                         },
+                         {
+                             "version":  "1.0.35.0",
+                             "changelog":  "Fixed Add Mapping functionality and startup crash (restart loop).",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.35/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "f4e9a50c743d00e826f6ffda40c0de49",
+                             "timestamp":  "2026-02-18T11:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.34.0",
+                             "changelog":  "Bump v1.0.34.0 - Fixed NHL date/team matching (loose match, date offset +/- 2 days), fixed League ID resolution for flat folders, added MD5 checksum generation to build script, preserved event suffix titles.",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.34.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "869cc9a00f08ad7a93d1e7f28e736f91",
+                             "timestamp":  "2026-02-17T19:30:00Z"
+                         },
+                         {
+                             "version":  "1.0.33.0",
+                             "changelog":  "Bump v1.0.33.0 - Migrated to Microsoft.Data.Sqlite for better Linux compatibility",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.33.0/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "E45A141AD20D353C5FD1EF4FC52959066D25B450C0FB64D09326E98FCD3E7A7A",
+                             "timestamp":  "2026-02-16T12:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.28.0",
+                             "changelog":  "Bump v1.0.28",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.28/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "22093875e9ad70a8bb6b1c99ba98c5a0",
+                             "timestamp":  "2026-02-13T19:02:00Z"
+                         },
+                         {
+                             "version":  "1.0.27.0",
+                             "changelog":  "Fix: SearchEventsAsync returns no results due to JSON property name mismatch (\"event\" vs \"events\")",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.27/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "e4673014488eb4f5e3c08f306528aa76",
+                             "timestamp":  "2026-02-13T09:40:00Z"
+                         },
+                         {
+                             "version":  "1.0.26.0",
+                             "changelog":  "Fixed EPL/Soccer metadata: extracts filename from path, improved CleanName (strips fps/language codes/scene tags), fixed DD/MM date ambiguity, corrected API parameters for league search and day events, removed unused Newtonsoft.Json dependency, expanded README with naming guide.",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.26/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "22093875e9ad70a8bb6b1c99ba98c5a0",
+                             "timestamp":  "2026-02-12T12:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.25.0",
+                             "changelog":  "Fixed configuration page saving issue (double submission) and improved search efficiency/accuracy for team names and dates.",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.25/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "00000000000000000000000000000000",
+                             "timestamp":  "2026-02-12T10:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.24.0",
+                             "changelog":  "Fixed configuration page saving issue by improving event binding and button handling.",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.24/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "72720e64b27509321faa029b2fca0e2b",
+                             "timestamp":  "2026-02-11T13:54:00Z"
+                         },
+                         {
+                             "version":  "1.0.23.0",
+                             "changelog":  "Fixed configuration page saving issue for League Mappings.",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/1.0.23/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "97cdd8cc2fd138b8495305dec8e8ff5a",
+                             "timestamp":  "2026-02-11T13:26:00Z"
+                         },
+                         {
+                             "version":  "1.0.22.0",
+                             "changelog":  "Added League Mapping configuration to allow custom folder names (e.g. \u0027SÃƒÆ’Ã‚Â¼per Lig\u0027 -\u003e \u00274339\u0027)",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/1.0.22/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "f2410a2c7f90884833f68a1d32b6f505",
+                             "timestamp":  "2026-02-11T13:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.21.0",
+                             "changelog":  "Fixed event matching by removing unreliable API parameter and improved abbreviation support with league context",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.21/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "581557E7E5040A26A33CE8184B05E407",
+                             "timestamp":  "2026-02-10T13:42:00Z"
+                         },
+                         {
+                             "version":  "1.0.20.0",
+                             "changelog":  "Updated local database to sports_resolver.db for better team matching and removed outdated league DB",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.20/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "3FE30F07983B7D7DFFEA66F46BF95C91",
+                             "timestamp":  "2026-02-08T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.18.0",
+                             "changelog":  "Fixed team matching for abbreviated names (e.g. STL vs LAK) and improved logging",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.18/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "CF0C191EC044B89AB61351A322603B6E",
+                             "timestamp":  "2026-02-01T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.17.0",
+                             "changelog":  "Applied timezone (T+/-1) fuzzy match to primary name search to fix missing events",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.17/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "AFAD5788C77D6B7EB52D791F61656A56",
+                             "timestamp":  "2026-01-26T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.16.0",
+                             "changelog":  "Added fuzzy date lookup (T+/-1 day) to handle TimeZone discrepancies (Local vs UTC)",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.16/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "7CDF6A5C3161B7D872EC2B60AE78A5AC",
+                             "timestamp":  "2026-01-26T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.15.0",
+                             "changelog":  "Integrated local sports_leagues.db for robust League ID resolution",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.15/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "1CB0688B2C8A130EE59F2ED05DFF145E",
+                             "timestamp":  "2026-01-26T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.14.0",
+                             "changelog":  "Added internal league ID map (NHL, EPL, UFC etc) to minimize API calls",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.14/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "C7CF7053638BF17EA07CE7AF0616A7AB",
+                             "timestamp":  "2026-01-26T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.13.0",
+                             "changelog":  "Relaxed League ID requirement to allow date-only lookup fallback",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.13/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "FF5067319AB6748A8B1DB3C5E2D609CE",
+                             "timestamp":  "2026-01-26T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.12.0",
+                             "changelog":  "Fix CheckTeamIdMatch to fetch team details and set Season number",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.12/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "DABA429E809DDC7FD21C46994DA5782C",
+                             "timestamp":  "2026-01-26T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.11.0",
+                             "changelog":  "Improved team name matching with short names",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.11/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "C5D57301D70A0E17A1719035490CA713",
+                             "timestamp":  "2026-01-26T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.10.0",
+                             "changelog":  "Added fallback to date-based lookup for episodes",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.10/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "65CA6683974EC77C6EE1F8A19EB29C30",
+                             "timestamp":  "2026-01-23T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.9.0",
+                             "changelog":  "Fix thumbnail downloads for episodes and series",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.9/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "b1fbfd883dfebe1983dbe57ca4b75e31",
+                             "timestamp":  "2026-01-22T08:15:00Z"
+                         },
+                         {
+                             "version":  "1.0.8.0",
+                             "changelog":  "Add episode/match metadata support",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.8/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "12fd30c89d6732eed663be4b6fa389d0",
+                             "timestamp":  "2026-01-22T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.7.0",
+                             "changelog":  "Add debug logging and fix image download implementation",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.7/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "8a822763c5c64ace0add9dc50f681207",
+                             "timestamp":  "2026-01-21T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.6.0",
+                             "changelog":  "Fix styling and overlay issues in config page",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.6/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "3f20ef5b7d6e9ae1701411e280683e19",
+                             "timestamp":  "2026-01-21T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.5.0",
+                             "changelog":  "Fix configuration page styling and load issues",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.5/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "9b9714d6102bb7ad59e72b7415d5909e",
+                             "timestamp":  "2026-01-21T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.4.0",
+                             "changelog":  "Fix configuration input focus styling",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.4/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "E65B0C7F11B53564FA65BAAAFCF85370",
+                             "timestamp":  "2026-01-20T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.3.0",
+                             "changelog":  "Fix configuration page input focus",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.3/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "EAECC04FBD30B07E3E7D5C3FFD94BC5F",
+                             "timestamp":  "2026-01-20T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.2.0",
+                             "changelog":  "Fix configuration page ID collision",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.2/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "5134307E95B42EFE24A2A50CE39864A6",
+                             "timestamp":  "2026-01-20T00:00:00Z"
+                         },
+                         {
+                             "version":  "1.0.1.0",
+                             "changelog":  "Added plugin logo",
+                             "targetAbi":  "10.0.0.0",
+                             "sourceUrl":  "https://github.com/retrorat1/Jellyfin.Plugin.TheSportsDB/releases/download/v1.0.1/Jellyfin.Plugin.TheSportsDB.zip",
+                             "checksum":  "6D8EE90CFA2B7358C53EA4CDD95B7026",
+                             "timestamp":  "2026-01-19T00:00:00Z"
+                         }
+                     ]
+    }
 ]

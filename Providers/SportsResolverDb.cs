@@ -4,7 +4,26 @@ using Microsoft.Data.Sqlite;
 public class SportsResolverDb
 {
     private readonly string _dbPath;
+    private bool? _teamLeaguesAvailable;
+
     public SportsResolverDb(string dbPath) { _dbPath = dbPath; }
+
+    private bool HasTeamLeaguesTable(SqliteConnection conn)
+    {
+        if (_teamLeaguesAvailable.HasValue)
+            return _teamLeaguesAvailable.Value;
+
+        using var cmd = new SqliteCommand(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'team_leagues'", conn);
+        _teamLeaguesAvailable = cmd.ExecuteScalar() != null;
+        return _teamLeaguesAvailable.Value;
+    }
+
+    private static string? ReadTeamName(SqliteCommand cmd)
+    {
+        using var reader = cmd.ExecuteReader();
+        return reader.Read() ? reader.GetString(0) : null;
+    }
 
     public string? GetLeagueSlug(string leagueId)
     {
@@ -27,14 +46,23 @@ public class SportsResolverDb
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath};");
             conn.Open();
-            // Pass 1: strict league
-            using (var cmd = new SqliteCommand(@"SELECT name FROM teams WHERE league_id=@lid AND (name=@l OR short_name=@l OR stripped_name=@l OR alternative_names LIKE @k) LIMIT 1", conn))
+
+            string leagueFilter = HasTeamLeaguesTable(conn)
+                ? "(t.league_id = @lid OR EXISTS (SELECT 1 FROM team_leagues tl WHERE tl.team_id = t.id AND tl.league_id = @lid))"
+                : "t.league_id = @lid";
+
+            // Pass 1: strict league (teams.league_id or team_leagues membership)
+            using (var cmd = new SqliteCommand($@"
+                SELECT t.name FROM teams t
+                WHERE {leagueFilter}
+                AND (t.name = @l OR t.short_name = @l OR t.stripped_name = @l OR t.alternative_names LIKE @k)
+                LIMIT 1", conn))
             {
                 cmd.Parameters.AddWithValue("@lid", leagueId);
                 cmd.Parameters.AddWithValue("@l", lookupName);
                 cmd.Parameters.AddWithValue("@k", $"%{lookupName}%");
-                using var r = cmd.ExecuteReader();
-                if (r.Read()) return r.GetString(0);
+                var name = ReadTeamName(cmd);
+                if (name != null) return name;
             }
             // Pass 2: cross-league
             using (var cmd2 = new SqliteCommand(@"SELECT name FROM teams WHERE (name=@l OR short_name=@l OR stripped_name=@l OR alternative_names LIKE @k) LIMIT 1", conn))
