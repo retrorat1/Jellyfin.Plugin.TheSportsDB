@@ -68,45 +68,173 @@ public class TheSportsDbClient
     }
 
     /// <summary>
-    /// List seasons for a league, including per-season poster and badge URLs.
-    /// TheSportsDB returns poster and badge only when requested separately, so both are fetched and merged.
+    /// Season art by league id + season year (e.g. 4429 + 2022) — dedicated art step after path/filename match.
+    /// TheSportsDB has no reliable JSON endpoint for a single season's poster
+    /// (<c>search_all_seasons</c> ignores <c>s=</c> and is not used for art).
+    /// Scrapes the public season page HTML for <c>posterarchive</c> (Season Poster) then <c>badgearchive</c>.
+    /// Prefers pretty URL <c>/season/{id}-{slug}/{year}</c> when <paramref name="leagueSlug"/> is available;
+    /// falls back to <c>season.php?l=&amp;s=</c> (no slug required; does not redirect).
     /// </summary>
-    public async Task<List<SeasonArt>> GetSeasonsAsync(string leagueId, CancellationToken cancellationToken)
+    public async Task<SeasonArt?> GetSeasonArtBySeasonAsync(
+        string leagueId,
+        string season,
+        CancellationToken cancellationToken,
+        string? leagueSlug = null)
     {
-        var posterTask = GetJsonAsync<RootObject>(
-            $"{BaseUrl}/search_all_seasons.php?id={Uri.EscapeDataString(leagueId)}&poster=1",
-            cancellationToken);
-        var badgeTask = GetJsonAsync<RootObject>(
-            $"{BaseUrl}/search_all_seasons.php?id={Uri.EscapeDataString(leagueId)}&badge=1",
-            cancellationToken);
+        if (string.IsNullOrWhiteSpace(leagueId) || string.IsNullOrWhiteSpace(season))
+            return null;
 
-        await Task.WhenAll(posterTask, badgeTask).ConfigureAwait(false);
-
-        var bySeason = new Dictionary<string, SeasonArt>(StringComparer.OrdinalIgnoreCase);
-
-        void Merge(IEnumerable<SeasonArt>? rows)
+        var seasonKey = season.Trim();
+        foreach (var url in BuildSeasonPageUrls(leagueId, seasonKey, leagueSlug))
         {
-            if (rows == null) return;
-            foreach (var row in rows)
-            {
-                if (string.IsNullOrWhiteSpace(row.strSeason)) continue;
-                if (!bySeason.TryGetValue(row.strSeason, out var existing))
-                {
-                    existing = new SeasonArt { strSeason = row.strSeason };
-                    bySeason[row.strSeason] = existing;
-                }
-
-                if (!string.IsNullOrEmpty(row.strPoster))
-                    existing.strPoster = row.strPoster;
-                if (!string.IsNullOrEmpty(row.strBadge))
-                    existing.strBadge = row.strBadge;
-            }
+            var art = await TryScrapeSeasonPageAsync(url, leagueId, seasonKey, cancellationToken)
+                .ConfigureAwait(false);
+            if (art != null)
+                return art;
         }
 
-        Merge((await posterTask.ConfigureAwait(false))?.seasons);
-        Merge((await badgeTask.ConfigureAwait(false))?.seasons);
+        return null;
+    }
 
-        return bySeason.Values.ToList();
+    /// <summary>
+    /// Pretty URL first when slug known; <c>season.php</c> always as reliable fallback (no slug).
+    /// Id-only <c>/season/{id}/{year}</c> also works on TheSportsDB but is unused — php is enough.
+    /// </summary>
+    private static IEnumerable<string> BuildSeasonPageUrls(string leagueId, string season, string? leagueSlug)
+    {
+        var slug = NormalizeLeagueSlug(leagueSlug);
+        if (!string.IsNullOrEmpty(slug))
+        {
+            yield return
+                $"https://www.thesportsdb.com/season/{Uri.EscapeDataString(leagueId)}-{slug}/{Uri.EscapeDataString(season)}";
+        }
+
+        yield return
+            $"https://www.thesportsdb.com/season.php?l={Uri.EscapeDataString(leagueId)}" +
+            $"&s={Uri.EscapeDataString(season)}";
+    }
+
+    /// <summary>DB look_up uses underscores; site canonicals use hyphens. Both work; prefer hyphens.</summary>
+    private static string? NormalizeLeagueSlug(string? slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+            return null;
+
+        // Keep only URL-safe slug chars; look_up is typically "fifa_world_cup"
+        var cleaned = slug.Trim().ToLowerInvariant().Replace('_', '-');
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"[^a-z0-9\-]+", "-");
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"-+", "-").Trim('-');
+        return string.IsNullOrEmpty(cleaned) ? null : cleaned;
+    }
+
+    private async Task<SeasonArt?> TryScrapeSeasonPageAsync(
+        string url, string leagueId, string season, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await WaitForRateLimitAsync(cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("TheSportsDB season page Request: {Url}", url);
+
+            using var client = _httpClientFactory.CreateClient(NamedClient.Default);
+            using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "TheSportsDB season page HTTP {StatusCode} for {Url}",
+                    (int)response.StatusCode,
+                    url);
+                return null;
+            }
+
+            var html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var (poster, badge) = ExtractSeasonArtFromHtml(html);
+
+            if (string.IsNullOrEmpty(poster) && string.IsNullOrEmpty(badge))
+            {
+                _logger.LogWarning(
+                    "TheSportsDB: No poster/badge on season page for league {LeagueId} season {Season} ({Url})",
+                    leagueId,
+                    season,
+                    url);
+                return null;
+            }
+
+            _logger.LogInformation(
+                "TheSportsDB: Scraped season art for {LeagueId}/{Season} via {Url} " +
+                "(poster={Poster}, badge={Badge})",
+                leagueId,
+                season,
+                url,
+                poster ?? "(none)",
+                badge ?? "(none)");
+
+            return new SeasonArt
+            {
+                strSeason = season,
+                strPoster = poster,
+                strBadge = badge
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "TheSportsDB: Failed season page art lookup for {Url}",
+                url);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Prefer labeled Season Poster / Season Badge hrefs, then any posterarchive / badgearchive URL.
+    /// Primary preference is posterarchive; badgearchive is the fallback image source.
+    /// </summary>
+    private static (string? Poster, string? Badge) ExtractSeasonArtFromHtml(string html)
+    {
+        // Exact labels from the season page, e.g.:
+        // <b>Season Poster</b><a href='https://r2.thesportsdb.com/images/media/league/posterarchive/...jpg'>
+        var poster = FirstGroup(html,
+            @"(?is)<b>\s*Season Poster\s*</b>\s*<a[^>]+href\s*=\s*['""]([^'""]+)['""]");
+        var badge = FirstGroup(html,
+            @"(?is)<b>\s*Season Badge\s*</b>\s*<a[^>]+href\s*=\s*['""]([^'""]+)['""]");
+
+        poster ??= FirstMatch(html,
+            @"https://(?:www\.|r2\.)?thesportsdb\.com/images/media/league/posterarchive/[a-zA-Z0-9]+\.(?:jpg|png|webp)");
+        badge ??= FirstMatch(html,
+            @"https://(?:www\.|r2\.)?thesportsdb\.com/images/media/league/badgearchive/[a-zA-Z0-9]+\.(?:jpg|png|webp)");
+
+        if (poster == null)
+        {
+            var rel = FirstMatch(html, @"images/media/league/posterarchive/[a-zA-Z0-9]+\.(?:jpg|png|webp)");
+            if (rel != null)
+                poster = "https://r2.thesportsdb.com/" + rel.TrimStart('/');
+        }
+
+        if (badge == null)
+        {
+            var rel = FirstMatch(html, @"images/media/league/badgearchive/[a-zA-Z0-9]+\.(?:jpg|png|webp)");
+            if (rel != null)
+                badge = "https://r2.thesportsdb.com/" + rel.TrimStart('/');
+        }
+
+        return (poster, badge);
+    }
+
+    private static string? FirstMatch(string input, string pattern)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(
+            input, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return m.Success ? m.Value : null;
+    }
+
+    private static string? FirstGroup(string input, string pattern)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(
+            input, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return m.Success && m.Groups.Count > 1 ? m.Groups[1].Value.Trim() : null;
     }
 
     public async Task<RootObject?> GetEventAsync(string id, CancellationToken cancellationToken)

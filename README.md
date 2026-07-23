@@ -225,10 +225,17 @@ The following are commonly used league IDs:
 - **Do not prefix with "Season"** — use `2026` or `2025-2026`, not `Season 2026`. TheSportsDB stores seasons as bare years only.
 
 **Wrong season badge / all seasons show the current league badge**
-- Refresh season images after updating the plugin (Identify / Replace images on the season)
-- Season folders must match TheSportsDB season strings (`2022`, or `2025-2026` for split seasons)
-- The series (league) must already have a TheSportsDB provider ID from a prior successful scan
-- Free/test API keys only return a small subset of seasons; use your own TheSportsDB API key for full season artwork
+- Jellyfin falls back to the **series** primary image when a season has no Primary of its own — so Season 2022 can show the 2026 World Cup poster if season art was never applied
+- After updating the plugin: refresh the **season** (or library scan). On first identification the plugin scrapes once, sets Primary, saves `poster.jpg`, and writes `season.nfo` in the season folder. Use **Replace all images** only to force a re-scrape
+- Season folders must match TheSportsDB season strings (`2022`, or `2025-2026` for split seasons) — avoid naming folders `Season 2022` on disk (display name is fine)
+- Path protocol (match first, scrape last): `/Sports/FIFA World Cup/2022` → resolve league id `4429` + season `2022` from the **folder name** (not Jellyfin's collapsed IndexNumber). Example: folder `2025-2026` stays `2025-2026` even if Jellyfin stores IndexNumber `20252026`
+- HTML scrape is the only art path (`posterarchive` then `badgearchive`). Scrape runs once when the season has no local poster/NFO art yet; later refreshes and per-game/episode scans skip it unless you force **Replace all images**
+- The series (league) must already have a TheSportsDB provider ID from a prior successful scan (or the parent folder name must resolve via mapping/DB)
+
+**Incomplete `season.nfo` (empty `<art />`, title `Season 20252026`)**
+- Jellyfin's built-in NFO saver writes `season.nfo` from IndexNumber and often leaves art empty before a Primary exists
+- This plugin overwrites/enriches `season.nfo` in the season folder with the real season string (e.g. `2025-2026`), TheSportsDB ids, and poster path/URL after a successful match
+- Series-level `tvshow.nfo` is still written by Jellyfin's NFO saver from league metadata (not by this plugin)
 
 **"Logs stop after saving configuration"**
 - Normal: Jellyfin always restarts after plugin config is saved
@@ -243,11 +250,11 @@ The following are commonly used league IDs:
 - Add a League Mapping in the plugin configuration before your first scan
 - Find the League ID on TheSportsDB.com (`https://www.thesportsdb.com/league/4331` → ID is `4331`)
 
-**NFO files not being written on Linux**
+**NFO / poster files not being written on Linux**
 - The Jellyfin service user (typically `jellyfin`) must have write permission to your media folders
 - Check with: `ls -la /path/to/your/media/`
-- If permission is denied, the NFO write is skipped silently and a warning is logged — metadata is still returned normally
-- **Note:** If Jellyfin's built-in NFO metadata saver is also enabled (Dashboard > Libraries > Manage Library > Metadata Savers > Nfo), it may overwrite the plugin-generated NFO on library refresh
+- If permission is denied, the write is skipped and a warning is logged — metadata is still returned normally
+- **Note:** If Jellyfin's built-in NFO saver is also enabled, it may rewrite `season.nfo` on later refreshes; re-scan the season or refresh metadata so the plugin can enrich it again after Primary art is present
 
 ---
 
