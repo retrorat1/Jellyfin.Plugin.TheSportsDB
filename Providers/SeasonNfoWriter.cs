@@ -23,18 +23,125 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             "season.jpg", "season.png"
         };
 
+        private static readonly HashSet<string> PathFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".mkv", ".mp4", ".avi", ".m4v", ".ts", ".m2ts", ".wmv", ".mov", ".mpg", ".mpeg",
+            ".nfo", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tbn"
+        };
+
         public static string? GetSeasonFolderPath(string? path)
         {
             if (string.IsNullOrWhiteSpace(path))
                 return null;
 
             var trimmed = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            // Prefer extension check so episode file paths work even when the OS path
+            // isn't visible to this process (remote/container mounts, etc.).
+            var leaf = Path.GetFileName(trimmed);
+            if (!string.IsNullOrEmpty(leaf))
+            {
+                var ext = Path.GetExtension(leaf);
+                if (!string.IsNullOrEmpty(ext) && PathFileExtensions.Contains(ext))
+                {
+                    var parent = Path.GetDirectoryName(trimmed);
+                    return string.IsNullOrEmpty(parent) ? null : parent;
+                }
+            }
+
             if (Directory.Exists(trimmed))
                 return trimmed;
 
             // If Path points at a file inside the season folder, use its directory
             var dir = Path.GetDirectoryName(trimmed);
             return Directory.Exists(dir) ? dir : trimmed;
+        }
+
+        /// <summary>
+        /// Parse season identity from a media or season-folder path.
+        /// Folder <c>2022</c> → Key=2022, IndexNumber=2022;
+        /// Folder <c>2025-2026</c> → Key=2025-2026, IndexNumber=20252026
+        /// (Jellyfin's collapsed form for linking; display Name stays hyphenated).
+        /// </summary>
+        public static bool TryGetSeasonFolderInfo(string? path, out string seasonKey, out int indexNumber)
+        {
+            seasonKey = string.Empty;
+            indexNumber = 0;
+
+            var folderPath = GetSeasonFolderPath(path);
+            if (string.IsNullOrEmpty(folderPath))
+                return false;
+
+            var folderName = Path.GetFileName(
+                folderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(folderName))
+                return false;
+
+            return TryParseSeasonFolderName(folderName, out seasonKey, out indexNumber);
+        }
+
+        /// <summary>
+        /// Parse a season folder name into display key + IndexNumber.
+        /// Split seasons use Jellyfin's collapsed IndexNumber (20252026) so episodes link to
+        /// the physical season folder; <paramref name="seasonKey"/> stays "2025-2026" for display.
+        /// </summary>
+        public static bool TryParseSeasonFolderName(string? folderName, out string seasonKey, out int indexNumber)
+        {
+            seasonKey = string.Empty;
+            indexNumber = 0;
+            if (string.IsNullOrWhiteSpace(folderName))
+                return false;
+
+            var name = folderName.Trim();
+            name = Regex.Replace(name, @"^(Season|Series)\s+", "", RegexOptions.IgnoreCase).Trim();
+            if (name.Length == 0)
+                return false;
+
+            // Split season: 2025-2026 or 2025/2026
+            // IndexNumber = collapsed 20252026 (matches Jellyfin folder scan); Key keeps hyphen.
+            var split = Regex.Match(
+                name,
+                @"^((?:19|20)\d{2})\s*[-/]\s*((?:19|20)\d{2})$");
+            if (split.Success
+                && int.TryParse(split.Groups[1].Value, out var start)
+                && int.TryParse(split.Groups[2].Value, out var end)
+                && end >= start
+                && end <= start + 1)
+            {
+                seasonKey = $"{start}-{end}";
+                indexNumber = start * 10000 + end;
+                return true;
+            }
+
+            // Calendar year folder: 2022
+            var year = Regex.Match(name, @"^((?:19|20)\d{2})$");
+            if (year.Success && int.TryParse(year.Groups[1].Value, out var y) && y is >= 1900 and <= 2100)
+            {
+                seasonKey = year.Groups[1].Value;
+                indexNumber = y;
+                return true;
+            }
+
+            // Collapsed Jellyfin form: 20252026 → Key 2025-2026 / IndexNumber 20252026
+            var expanded = TryExpandCollapsedSeason(name);
+            if (!string.IsNullOrEmpty(expanded)
+                && int.TryParse(name, out var collapsed)
+                && collapsed is >= 19001900 and <= 21002100)
+            {
+                seasonKey = expanded;
+                indexNumber = collapsed;
+                return true;
+            }
+
+            // Season N / bare positive index (non-year)
+            if (int.TryParse(name, out var n) && n > 0 && n < 1900)
+            {
+                seasonKey = n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                indexNumber = n;
+                return true;
+            }
+
+            return false;
         }
 
         public static bool HasLocalPrimaryImage(string? seasonFolder)
@@ -180,7 +287,8 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 logger.LogWarning(
                     ex,
                     "TheSportsDB: Permission denied writing season.nfo in {Folder} — " +
-                    "ensure the Jellyfin service user can write to media folders",
+                    "Primary image URL still set in metadata; grant the jellyfin user write access " +
+                    "to media folders if you want on-disk season.nfo / poster.jpg",
                     seasonFolder);
             }
             catch (Exception ex)

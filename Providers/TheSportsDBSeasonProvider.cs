@@ -74,12 +74,24 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             var seasonKey = identity.Season;
             var seasonFolder = SeasonNfoWriter.GetSeasonFolderPath(info.Path);
 
+            // Prefer path folder identity (2022 → 2022; 2025-2026 → Name 2025-2026 / Index 20252026)
+            // so episodes' ParentIndexNumber links to this season.
+            int? indexNumber = info.IndexNumber;
+            if (SeasonNfoWriter.TryGetSeasonFolderInfo(info.Path, out var pathKey, out var pathIndex))
+            {
+                seasonKey = pathKey;
+                indexNumber = pathIndex;
+            }
+            else if (SeasonNfoWriter.TryParseSeasonFolderName(seasonKey, out var parsedKey, out var parsedIndex))
+            {
+                seasonKey = parsedKey;
+                indexNumber = parsedIndex;
+            }
+
             result.HasMetadata = true;
             result.Item = new Season
             {
-                // Keep Jellyfin IndexNumber for episode linking (may be collapsed 20252026);
-                // display/provider id use the real folder season string (2025-2026).
-                IndexNumber = info.IndexNumber,
+                IndexNumber = indexNumber,
                 Name = seasonKey
             };
 
@@ -89,66 +101,88 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             result.Item.ProviderIds["TheSportsDB"] = seasonKey;
             result.Item.ProviderIds["TheSportsDBSeries"] = identity.LeagueId;
 
-            var hasLocalArt = SeasonNfoWriter.HasLocalPrimaryImage(seasonFolder)
-                              || SeasonNfoWriter.HasNfoPoster(seasonFolder);
-
+            // Scrape / disk writes must not fail the metadata refresh: Primary remote URL
+            // is enough for Jellyfin's metadata library when media folder isn't writable.
             string? posterUrl = null;
-            if (hasLocalArt)
+            try
             {
-                _logger.LogInformation(
-                    "TheSportsDB: Season \"{Season}\" already has local poster/NFO art — skipping scrape",
-                    seasonKey);
-            }
-            else
-            {
-                _logger.LogInformation(
-                    "TheSportsDB: Season \"{Season}\" has no Primary yet — scraping season page once",
-                    seasonKey);
+                var hasLocalArt = SeasonNfoWriter.HasLocalPrimaryImage(seasonFolder)
+                                  || SeasonNfoWriter.HasNfoPoster(seasonFolder);
 
-                var art = await ScrapeWithIdentityAsync(identity, cancellationToken)
-                    .ConfigureAwait(false);
-                posterUrl = FirstNonEmpty(art?.strPoster, art?.strBadge);
-
-                if (!string.IsNullOrEmpty(posterUrl))
+                if (hasLocalArt)
                 {
-                    result.Item.SetImage(
-                        new ItemImageInfo { Type = ImageType.Primary, Path = posterUrl }, 0);
-                    result.RemoteImages.Add((posterUrl, ImageType.Primary));
-
-                    if (!string.IsNullOrEmpty(seasonFolder))
-                    {
-                        await TryDownloadPosterAsync(seasonFolder, posterUrl, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
+                    _logger.LogInformation(
+                        "TheSportsDB: Season \"{Season}\" already has local poster/NFO art — skipping scrape",
+                        seasonKey);
                 }
                 else
                 {
-                    _logger.LogWarning(
-                        "TheSportsDB: No season art scraped for league {LeagueId} season \"{Season}\"",
-                        identity.LeagueId,
+                    _logger.LogInformation(
+                        "TheSportsDB: Season \"{Season}\" has no Primary yet — scraping season page once",
                         seasonKey);
+
+                    var art = await ScrapeWithIdentityAsync(identity, cancellationToken)
+                        .ConfigureAwait(false);
+                    posterUrl = FirstNonEmpty(art?.strPoster, art?.strBadge);
+
+                    if (!string.IsNullOrEmpty(posterUrl))
+                    {
+                        // Set remote Primary first — works even when poster.jpg can't be written
+                        result.Item.SetImage(
+                            new ItemImageInfo { Type = ImageType.Primary, Path = posterUrl }, 0);
+                        result.RemoteImages.Add((posterUrl, ImageType.Primary));
+
+                        if (!string.IsNullOrEmpty(seasonFolder))
+                        {
+                            await TryDownloadPosterAsync(seasonFolder, posterUrl, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "TheSportsDB: No season art scraped for league {LeagueId} season \"{Season}\"",
+                            identity.LeagueId,
+                            seasonKey);
+                    }
                 }
-            }
 
-            if (!string.IsNullOrEmpty(seasonFolder))
-            {
-                SeasonNfoWriter.Write(
-                    seasonFolder,
-                    seasonKey,
+                if (!string.IsNullOrEmpty(seasonFolder))
+                {
+                    SeasonNfoWriter.Write(
+                        seasonFolder,
+                        seasonKey,
+                        identity.LeagueId,
+                        indexNumber,
+                        year > 0 ? year : null,
+                        posterUrl,
+                        _logger);
+                }
+
+                _logger.LogInformation(
+                    "TheSportsDB: Season metadata matched league={LeagueId} season=\"{Season}\" " +
+                    "(IndexNumber={Index}, scraped={Scraped})",
                     identity.LeagueId,
-                    info.IndexNumber,
-                    year > 0 ? year : null,
-                    posterUrl,
-                    _logger);
+                    seasonKey,
+                    indexNumber,
+                    !hasLocalArt && !string.IsNullOrEmpty(posterUrl));
             }
-
-            _logger.LogInformation(
-                "TheSportsDB: Season metadata matched league={LeagueId} season=\"{Season}\" " +
-                "(IndexNumber={Index}, scraped={Scraped})",
-                identity.LeagueId,
-                seasonKey,
-                info.IndexNumber,
-                !hasLocalArt && !string.IsNullOrEmpty(posterUrl));
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "TheSportsDB: Permission denied during season art/NFO for \"{Season}\" in {Folder} — " +
+                    "metadata/Primary URL still applied; grant jellyfin write access to media for on-disk files",
+                    seasonKey,
+                    seasonFolder ?? "(none)");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "TheSportsDB: Season art/NFO step failed for \"{Season}\" — identity metadata still returned",
+                    seasonKey);
+            }
 
             return result;
         }
@@ -219,12 +253,26 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 var leagueId = seriesId
                                ?? season.GetProviderId("TheSportsDBSeries")
                                ?? "";
+
+                // Prefer path folder identity (2025-2026 display / collapsed IndexNumber)
+                int? indexNumber = season.IndexNumber;
+                if (SeasonNfoWriter.TryGetSeasonFolderInfo(season.Path, out var pathKey, out var pathIndex))
+                {
+                    seasonKey = pathKey;
+                    indexNumber = pathIndex;
+                }
+                else if (SeasonNfoWriter.TryParseSeasonFolderName(seasonKey, out var parsedKey, out var parsedIndex))
+                {
+                    seasonKey = parsedKey;
+                    indexNumber = parsedIndex;
+                }
+
                 TryParseSeasonYear(seasonKey, out var year);
                 SeasonNfoWriter.Write(
                     seasonFolder,
                     seasonKey,
                     leagueId,
-                    season.IndexNumber,
+                    indexNumber,
                     year > 0 ? year : null,
                     posterUrl,
                     _logger);
@@ -377,7 +425,8 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             {
                 _logger.LogWarning(
                     ex,
-                    "TheSportsDB: Permission denied saving poster.jpg in {Folder}",
+                    "TheSportsDB: Permission denied saving poster.jpg in {Folder} — " +
+                    "Primary remote URL still applied via metadata library",
                     seasonFolder);
             }
             catch (Exception ex)

@@ -85,6 +85,21 @@ The plugin includes built-in support for popular leagues (see [Known Leagues](#-
 
 > **Reminder**: Mapping changes require a **full library rescan** for new/changed folders.
 
+### Enable TheSportsDB in Library Settings
+
+Installing the plugin is not enough — **TheSportsDB must be enabled for every metadata and image type** on each sports library:
+
+1. Go to **Dashboard > Libraries**
+2. Open your sports library → **Manage Library** (metadata / fetchers settings)
+3. Under **Metadata downloaders**, enable **TheSportsDB** for:
+   - **Series**
+   - **Seasons** (may appear as **TV Programmes** depending on locale)
+   - **Episodes**
+4. Under **Image fetchers**, enable **TheSportsDB** for the same three: **Series**, **Seasons** / **TV Programmes**, and **Episodes**
+5. Save, then refresh or rescan the library
+
+> **Important:** Season posters will not appear if **Seasons** / **TV Programmes** metadata downloaders or image fetchers are disabled — even when Series and Episodes work fine.
+
 ---
 
 ## 📝 Recommended File Naming Guide
@@ -223,6 +238,10 @@ The following are commonly used league IDs:
 - Ensure your season folder contains the year (e.g., `2025-2026`)
 - Check that the parent folder matches a known league or has a mapping configured
 - **Do not prefix with "Season"** — use `2026` or `2025-2026`, not `Season 2026`. TheSportsDB stores seasons as bare years only.
+
+**No season posters / Season metadata missing**
+- Confirm **TheSportsDB** is enabled under both **Metadata downloaders** and **Image fetchers** for **Seasons** (or **TV Programmes**) in **Dashboard > Libraries > [library] > Manage Library** — Series/Episodes alone are not enough
+- See [Enable TheSportsDB in Library Settings](#enable-thesportsdb-in-library-settings)
 
 **Wrong season badge / all seasons show the current league badge**
 - Jellyfin falls back to the **series** primary image when a season has no Primary of its own — so Season 2022 can show the 2026 World Cup poster if season art was never applied

@@ -195,14 +195,21 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 _logger.LogInformation("TheSportsDB: Appended suffix to title: \"{T}\"", title);
             }
 
+            DateTime? premiere = DateTime.TryParse(full.dateEvent, out var pd) ? pd : null;
+            int? productionYear = premiere?.Year;
+
             result.Item = new Episode
             {
                 Name = title,
                 Overview = BuildOverview(full.strDescriptionEN),
-                PremiereDate = DateTime.TryParse(full.dateEvent, out var pd) ? pd : null,
-                ProductionYear = DateTime.TryParse(full.dateEvent, out var py) ? py.Year : null,
+                PremiereDate = premiere,
+                ProductionYear = productionYear,
             };
             result.Item.ProviderIds["TheSportsDB"] = full.idEvent;
+
+            // ParentIndexNumber from season folder (…/FIFA World Cup/2022/… → 2022).
+            // Without this Jellyfin creates "Season Unknown" and season art/NFO never run.
+            ApplyParentIndexNumber(result.Item, info);
 
             if (!string.IsNullOrEmpty(full.strThumb))
                 result.Item.SetImage(new ItemImageInfo { Type = ImageType.Primary, Path = full.strThumb }, 0);
@@ -212,6 +219,50 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 result.Item.SetImage(new ItemImageInfo { Type = ImageType.Backdrop, Path = full.strFanart }, 0);
 
             return result;
+        }
+
+        /// <summary>
+        /// Set episode ParentIndexNumber from the season folder name so Jellyfin links the
+        /// episode to a real season (not "Season Unknown"). Prefer path folder over
+        /// ProductionYear so World Cup /2022 stays season 2022 even if the match date differs.
+        /// </summary>
+        private void ApplyParentIndexNumber(Episode episode, EpisodeInfo info)
+        {
+            if (SeasonNfoWriter.TryGetSeasonFolderInfo(info.Path, out var seasonKey, out var indexNumber))
+            {
+                episode.ParentIndexNumber = indexNumber;
+                _logger.LogInformation(
+                    "TheSportsDB: ParentIndexNumber={Index} from season folder \"{Folder}\"",
+                    indexNumber,
+                    seasonKey);
+                return;
+            }
+
+            // Preserve path-derived value Jellyfin already resolved during scan
+            if (info.ParentIndexNumber is > 0)
+            {
+                episode.ParentIndexNumber = info.ParentIndexNumber;
+                _logger.LogInformation(
+                    "TheSportsDB: ParentIndexNumber={Index} preserved from EpisodeInfo",
+                    info.ParentIndexNumber);
+                return;
+            }
+
+            // Last resort (historical behaviour): ProductionYear as season number
+            if (episode.ProductionYear is > 0)
+            {
+                episode.ParentIndexNumber = episode.ProductionYear;
+                _logger.LogInformation(
+                    "TheSportsDB: ParentIndexNumber={Index} from ProductionYear (no season folder)",
+                    episode.ProductionYear);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "TheSportsDB: Could not resolve ParentIndexNumber for path \"{Path}\" — " +
+                    "Jellyfin may create Season Unknown",
+                    info.Path);
+            }
         }
 
         private async Task<Event?> FindEventAsync(
