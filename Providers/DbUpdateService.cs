@@ -50,7 +50,7 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             {
                 var client = _httpClientFactory.CreateClient();
                 client.DefaultRequestHeaders.Add("User-Agent", "Jellyfin-TheSportsDB-Plugin/1.0");
-                client.Timeout = TimeSpan.FromSeconds(10);
+                client.Timeout = TimeSpan.FromMinutes(2);
 
                 // Fetch release metadata
                 var release = await client
@@ -108,9 +108,16 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 var bytes = await client.GetByteArrayAsync(asset.BrowserDownloadUrl, cancellationToken)
                     .ConfigureAwait(false);
 
-                // Save to plugin folder so SportsResolverDb loads the updated file
-                string pluginDir = Path.GetDirectoryName(typeof(DbUpdateService).Assembly.Location) ?? _appPaths.DataPath;
-                string destPath = Path.Combine(pluginDir, "sports_resolver.db");
+                if (!IsValidSqliteDatabase(bytes))
+                {
+                    _logger.LogWarning(
+                        "TheSportsDB: Downloaded DB failed SQLite validation (size={Size}); keeping existing DB.",
+                        bytes.Length);
+                    return;
+                }
+
+                // Prefer DataPath so updates survive plugin upgrades and match DbPathResolver.
+                string destPath = Path.Combine(_appPaths.DataPath, "sports_resolver.db");
                 string tempPath = destPath + ".tmp";
 
                 await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken)
@@ -128,6 +135,16 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
                 _logger.LogWarning(
                     "TheSportsDB: DB update check failed: {E}", ex.Message);
             }
+        }
+
+        private static bool IsValidSqliteDatabase(byte[] bytes)
+        {
+            // SQLite files start with "SQLite format 3\0"
+            if (bytes == null || bytes.Length < 100)
+                return false;
+
+            ReadOnlySpan<byte> header = "SQLite format 3\0"u8;
+            return bytes.AsSpan(0, header.Length).SequenceEqual(header);
         }
 
         private class GithubRelease

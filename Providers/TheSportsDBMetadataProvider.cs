@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
@@ -28,15 +29,13 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
         public TheSportsDBMetadataProvider(
             IHttpClientFactory httpClientFactory,
             ILogger<TheSportsDBMetadataProvider> logger,
-            ILogger<TheSportsDbClient> clientLogger)
+            ILogger<TheSportsDbClient> clientLogger,
+            IApplicationPaths applicationPaths)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
             _client = new TheSportsDbClient(httpClientFactory, clientLogger);
-            string pluginLocation = typeof(TheSportsDBMetadataProvider).Assembly.Location;
-            string dbPath = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(pluginLocation) ?? "", "sports_resolver.db");
-            _sportsResolverDb = new SportsResolverDb(dbPath);
+            _sportsResolverDb = new SportsResolverDb(applicationPaths);
         }
 
         /// <summary>

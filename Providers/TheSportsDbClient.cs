@@ -1,7 +1,8 @@
 namespace Jellyfin.Plugin.TheSportsDB.Providers;
 
 using System;
-using System.IO;
+using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -12,6 +13,13 @@ using Microsoft.Extensions.Logging;
 
 public class TheSportsDbClient
 {
+    // Premium plan allows 100 req/min; leave headroom for concurrent scans.
+    private const int MaxRequestsPerMinute = 90;
+    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(700);
+    private static readonly SemaphoreSlim RateGate = new(1, 1);
+    private static readonly Queue<long> RequestTicks = new();
+    private static long _lastRequestTicks;
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<TheSportsDbClient> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
@@ -59,6 +67,48 @@ public class TheSportsDbClient
         return await GetJsonAsync<RootObject>(url, cancellationToken);
     }
 
+    /// <summary>
+    /// List seasons for a league, including per-season poster and badge URLs.
+    /// TheSportsDB returns poster and badge only when requested separately, so both are fetched and merged.
+    /// </summary>
+    public async Task<List<SeasonArt>> GetSeasonsAsync(string leagueId, CancellationToken cancellationToken)
+    {
+        var posterTask = GetJsonAsync<RootObject>(
+            $"{BaseUrl}/search_all_seasons.php?id={Uri.EscapeDataString(leagueId)}&poster=1",
+            cancellationToken);
+        var badgeTask = GetJsonAsync<RootObject>(
+            $"{BaseUrl}/search_all_seasons.php?id={Uri.EscapeDataString(leagueId)}&badge=1",
+            cancellationToken);
+
+        await Task.WhenAll(posterTask, badgeTask).ConfigureAwait(false);
+
+        var bySeason = new Dictionary<string, SeasonArt>(StringComparer.OrdinalIgnoreCase);
+
+        void Merge(IEnumerable<SeasonArt>? rows)
+        {
+            if (rows == null) return;
+            foreach (var row in rows)
+            {
+                if (string.IsNullOrWhiteSpace(row.strSeason)) continue;
+                if (!bySeason.TryGetValue(row.strSeason, out var existing))
+                {
+                    existing = new SeasonArt { strSeason = row.strSeason };
+                    bySeason[row.strSeason] = existing;
+                }
+
+                if (!string.IsNullOrEmpty(row.strPoster))
+                    existing.strPoster = row.strPoster;
+                if (!string.IsNullOrEmpty(row.strBadge))
+                    existing.strBadge = row.strBadge;
+            }
+        }
+
+        Merge((await posterTask.ConfigureAwait(false))?.seasons);
+        Merge((await badgeTask.ConfigureAwait(false))?.seasons);
+
+        return bySeason.Values.ToList();
+    }
+
     public async Task<RootObject?> GetEventAsync(string id, CancellationToken cancellationToken)
     {
         var url = $"{BaseUrl}/lookupevent.php?id={id}";
@@ -100,26 +150,132 @@ public class TheSportsDbClient
     
     private async Task<T?> GetJsonAsync<T>(string url, CancellationToken cancellationToken) where T : class
     {
-        try
-        {
-            // Log the URL for debugging
-            _logger.LogInformation("TheSportsDB API Request: {Url}", url);
+        const int maxAttempts = 4;
 
-            using var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-            
-            if (response.IsSuccessStatusCode)
-            {
-                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (Exception ex)
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            _logger.LogError(ex, "Error fetching data from URL: {Url}", url);
+            try
+            {
+                await WaitForRateLimitAsync(cancellationToken).ConfigureAwait(false);
+
+                _logger.LogInformation("TheSportsDB API Request: {Url}", url);
+
+                using var client = _httpClientFactory.CreateClient(NamedClient.Default);
+                using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    var delay = response.Headers.RetryAfter?.Delta
+                        ?? TimeSpan.FromSeconds(65);
+                    if (delay < TimeSpan.FromSeconds(5))
+                        delay = TimeSpan.FromSeconds(65);
+
+                    _logger.LogWarning(
+                        "TheSportsDB rate limited (429) for {Url}; waiting {Seconds}s (attempt {Attempt}/{Max})",
+                        url,
+                        delay.TotalSeconds,
+                        attempt,
+                        maxAttempts);
+
+                    ResetRateWindow();
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning(
+                        "TheSportsDB HTTP {StatusCode} for {Url}",
+                        (int)response.StatusCode,
+                        url);
+                    return null;
+                }
+
+                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                var backoff = TimeSpan.FromSeconds(Math.Min(30, 5 * attempt));
+                _logger.LogWarning(
+                    ex,
+                    "TheSportsDB request error for {Url}; retrying in {Seconds}s (attempt {Attempt}/{Max})",
+                    url,
+                    backoff.TotalSeconds,
+                    attempt,
+                    maxAttempts);
+                await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching data from URL: {Url}", url);
+                return null;
+            }
         }
 
         return null;
+    }
+
+    private static async Task WaitForRateLimitAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            TimeSpan delay = TimeSpan.Zero;
+
+            await RateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var now = DateTime.UtcNow.Ticks;
+                var windowTicks = TimeSpan.FromMinutes(1).Ticks;
+
+                while (RequestTicks.Count > 0 && now - RequestTicks.Peek() >= windowTicks)
+                    RequestTicks.Dequeue();
+
+                if (RequestTicks.Count >= MaxRequestsPerMinute)
+                {
+                    var waitTicks = RequestTicks.Peek() + windowTicks - now;
+                    delay = TimeSpan.FromTicks(Math.Max(waitTicks, 0)) + TimeSpan.FromMilliseconds(50);
+                }
+                else if (_lastRequestTicks > 0)
+                {
+                    var sinceLast = TimeSpan.FromTicks(now - _lastRequestTicks);
+                    if (sinceLast < MinInterval)
+                        delay = MinInterval - sinceLast;
+                }
+
+                if (delay <= TimeSpan.Zero)
+                {
+                    _lastRequestTicks = now;
+                    RequestTicks.Enqueue(now);
+                    return;
+                }
+            }
+            finally
+            {
+                RateGate.Release();
+            }
+
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static void ResetRateWindow()
+    {
+        RateGate.Wait();
+        try
+        {
+            RequestTicks.Clear();
+            _lastRequestTicks = 0;
+        }
+        finally
+        {
+            RateGate.Release();
+        }
     }
 }
 
@@ -132,6 +288,14 @@ public class RootObject
     public List<Event>? @event { get; set; }
     public List<Event>? eventresults { get; set; }
     public List<Team>? teams { get; set; }
+    public List<SeasonArt>? seasons { get; set; }
+}
+
+public class SeasonArt
+{
+    public string strSeason { get; set; } = string.Empty;
+    public string? strPoster { get; set; }
+    public string? strBadge { get; set; }
 }
 
 public class League

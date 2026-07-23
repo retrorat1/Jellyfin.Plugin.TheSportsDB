@@ -70,10 +70,7 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             _httpClientFactory = httpClientFactory;
             _logger = logger;
             _client = new TheSportsDbClient(httpClientFactory, clientLogger);
-            string pluginLocation = typeof(TheSportsDBEpisodeProvider).Assembly.Location;
-            string dbPath = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(pluginLocation) ?? "", "sports_resolver.db");
-            _sportsResolverDb = new SportsResolverDb(dbPath);
+            _sportsResolverDb = new SportsResolverDb(applicationPaths);
         }
 
         public async Task<IEnumerable<RemoteSearchResult>> GetSearchResults(

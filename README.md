@@ -7,6 +7,7 @@ A comprehensive Jellyfin metadata provider plugin for [TheSportsDB](https://www.
 This plugin integrates TheSportsDB's extensive sports database with Jellyfin, providing:
 
 - **League Metadata**: Name, Overview, Year, Logo Images, and Fanart
+- **Season Artwork**: Per-year posters and badges matched to season folders (e.g. `2022`, `2025-2026`)
 - **Event/Match Metadata**: Event Name, Date, Teams, Thumbnails, and Fanart
 - **Smart Mapping**: Leagues map to "Series" and Events map to "Episodes" in Jellyfin
 - **Flexible Configuration**: Custom API Keys and League Mappings support
@@ -222,6 +223,12 @@ The following are commonly used league IDs:
 - Ensure your season folder contains the year (e.g., `2025-2026`)
 - Check that the parent folder matches a known league or has a mapping configured
 - **Do not prefix with "Season"** — use `2026` or `2025-2026`, not `Season 2026`. TheSportsDB stores seasons as bare years only.
+
+**Wrong season badge / all seasons show the current league badge**
+- Refresh season images after updating the plugin (Identify / Replace images on the season)
+- Season folders must match TheSportsDB season strings (`2022`, or `2025-2026` for split seasons)
+- The series (league) must already have a TheSportsDB provider ID from a prior successful scan
+- Free/test API keys only return a small subset of seasons; use your own TheSportsDB API key for full season artwork
 
 **"Logs stop after saving configuration"**
 - Normal: Jellyfin always restarts after plugin config is saved
