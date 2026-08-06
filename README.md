@@ -311,14 +311,10 @@ We welcome contributions! Here's how you can help:
 
 2. Build the plugin:
    ```bash
-   dotnet build
+   dotnet build -c Release
    ```
 
-3. Package the plugin:
-   ```bash
-   # On Windows
-   .\build-and-package.ps1
-   ```
+3. Package a release zip from the `bin/Release/net8.0` output (DLL + `sports_resolver.db`), upload it to a GitHub Release, and update `manifest.json` with the zip URL and MD5 checksum.
 
 ### Reporting Issues
 

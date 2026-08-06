@@ -18,6 +18,15 @@ x86/
 *.pdb
 *.exe
 *.cache
+*.zip
+
+# Personal packaging/deploy scripts (live in D:\Git Project)
+build-and-package*.ps1
+deploy*.ps1
+
+# Scratch / local tests
+RegexTest.cs
+*Test.cs.bak
 
 # NuGet Packages
 *.nupkg
