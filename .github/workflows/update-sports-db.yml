@@ -1,0 +1,124 @@
+name: Update sports_resolver.db
+
+on:
+  schedule:
+    # 1st of each month at 06:00 UTC
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      max_rpm:
+        description: "Max API requests per minute (stay at or under 100)"
+        required: false
+        default: "95"
+      limit:
+        description: "Optional team limit for a short test run (0 = all)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-sports-resolver-db
+  cancel-in-progress: false
+
+jobs:
+  rebuild-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Rebuild sports_resolver.db from TheSportsDB
+        env:
+          THESPORTSDB_API_KEY: ${{ secrets.THESPORTSDB_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${THESPORTSDB_API_KEY:-}" ]; then
+            echo "Missing secret THESPORTSDB_API_KEY. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          MAX_RPM="${{ github.event.inputs.max_rpm }}"
+          LIMIT="${{ github.event.inputs.limit }}"
+          MAX_RPM="${MAX_RPM:-95}"
+          LIMIT="${LIMIT:-0}"
+
+          ARGS=(--max-rpm "$MAX_RPM" --commit-every 250)
+          if [ "$LIMIT" != "0" ] && [ -n "$LIMIT" ]; then
+            ARGS+=(--limit "$LIMIT")
+          fi
+
+          # Exit code 2 = some API skips (e.g. placeholder rows); still publish the DB.
+          set +e
+          python -u scripts/rebuild_db_from_api.py "${ARGS[@]}"
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -ne 0 ] && [ "$STATUS" -ne 2 ]; then
+            echo "Rebuild failed with exit code $STATUS"
+            exit "$STATUS"
+          fi
+
+      - name: Validate SQLite file
+        run: |
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          db = Path("sports_resolver.db")
+          if not db.exists():
+              raise SystemExit("sports_resolver.db missing after rebuild")
+
+          header = db.read_bytes()[:16]
+          if not header.startswith(b"SQLite format 3\x00"):
+              raise SystemExit("File is not a valid SQLite database")
+
+          conn = sqlite3.connect(db)
+          teams = conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0]
+          leagues = conn.execute("SELECT COUNT(*) FROM leagues_lookup").fetchone()[0]
+          try:
+              team_leagues = conn.execute("SELECT COUNT(*) FROM team_leagues").fetchone()[0]
+          except sqlite3.OperationalError:
+              team_leagues = 0
+          conn.close()
+
+          print(f"OK: teams={teams} leagues_lookup={leagues} team_leagues={team_leagues}")
+          if teams < 1000 or leagues < 100:
+              raise SystemExit("DB looks too small after rebuild; refusing to publish")
+          PY
+
+      - name: Commit updated DB to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sports_resolver.db
+          if git diff --staged --quiet; then
+            echo "No DB changes to commit."
+          else
+            git commit -m "chore: refresh sports_resolver.db from TheSportsDB"
+            git push
+          fi
+
+      - name: Upload DB to db-latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if ! gh release view db-latest >/dev/null 2>&1; then
+            gh release create db-latest \
+              --title "DB Latest" \
+              --notes "Auto-updated sports_resolver.db for plugin DbUpdateService."
+          fi
+
+          # Replace the asset so DbUpdateService sees a new updated_at timestamp.
+          gh release upload db-latest sports_resolver.db --clobber
+
+          echo "Uploaded sports_resolver.db to release tag db-latest"

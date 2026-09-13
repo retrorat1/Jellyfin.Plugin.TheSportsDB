@@ -39,3 +39,15 @@ packages/
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Local DB backups from rebuild scripts
+*.db.bak
+sports_resolver.db-journal
+sports_resolver.db-wal
+sports_resolver.db-shm
