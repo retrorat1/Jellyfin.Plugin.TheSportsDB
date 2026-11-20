@@ -207,6 +207,18 @@ namespace Jellyfin.Plugin.TheSportsDB.Providers
             };
             result.Item.ProviderIds["TheSportsDB"] = full.idEvent;
 
+            // AiredEpisodeOrder ties same-day games, then Jellyfin keeps SortName.
+            // Invert idEvent so the newest event sorts first. Leave IndexNumber alone:
+            // a raw id there would number the episode and sort the oldest id first.
+            if (long.TryParse(full.idEvent, out var tsdbId))
+            {
+                result.Item.ForcedSortName = (9_999_999_999L - tsdbId).ToString("D10");
+                _logger.LogInformation(
+                    "TheSportsDB: ForcedSortName={Sort} from idEvent={Id}",
+                    result.Item.ForcedSortName,
+                    full.idEvent);
+            }
+
             // ParentIndexNumber from season folder (…/FIFA World Cup/2022/… → 2022).
             // Without this Jellyfin creates "Season Unknown" and season art/NFO never run.
             ApplyParentIndexNumber(result.Item, info);
