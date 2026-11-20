@@ -1,0 +1,12 @@
+[
+  {
+    "id": "148494",
+    "comment": "NHL Utah Mammoth: filenames use UTA; TheSportsDB still exposes UHC (Utah Hockey Club era).",
+    "short_name": "UTA",
+    "ensure_alternative_names": [
+      "UHC",
+      "Mammoth",
+      "Utah Hockey Club"
+    ]
+  }
+]

@@ -7,6 +7,7 @@ For each team this script:
   2. Sets alternative_names from TSDB strTeamAlternate (merged with kept locals)
   3. Upserts team_leagues from idLeague..idLeague7
   4. Sets teams.league_id to the TSDB primary league
+  5. Re-applies scripts/team_overrides.json (durable short_name / alias seeds)
 
 Rate limited to 95 requests/minute by default (under the usual 100/min cap).
 
@@ -28,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from apply_team_overrides import DEFAULT_OVERRIDES, apply_overrides, load_overrides
 from fix_team_aliases import strip_bogus_aliases
 from tsdb_api import (
     DEFAULT_MAX_REQUESTS_PER_MINUTE,
@@ -222,6 +224,12 @@ def main() -> int:
 
     conn.commit()
 
+    # Durable local overrides (e.g. NHL Utah Mammoth short_name=UTA while API has UHC)
+    override_changes: list[tuple[str, str]] = []
+    if DEFAULT_OVERRIDES.exists():
+        override_changes = apply_overrides(conn, load_overrides(DEFAULT_OVERRIDES))
+        conn.commit()
+
     league_rows = conn.execute("SELECT COUNT(*) FROM team_leagues").fetchone()[0]
     multi_league = conn.execute(
         """
@@ -237,6 +245,9 @@ def main() -> int:
     print(f"Alias rows updated:   {updated_aliases}")
     print(f"League rows updated:  {updated_leagues}")
     print(f"API failed/empty:     {api_failed}")
+    print(f"Override rows applied:{len(override_changes)}")
+    for _team_id, summary in override_changes:
+        print(f"  override: {summary}")
     print(f"team_leagues rows:    {league_rows}")
     print(f"Teams in 2+ leagues:  {multi_league}")
 
